@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: learnova-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: API_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: FCM_PROJECT_ID
+        sync: false
+      - key: FCM_CLIENT_EMAIL
+        sync: false
+      - key: FCM_PRIVATE_KEY
+        sync: false
+      - key: CERTIFICATE_VERIFY_BASE_URL
+        sync: false
+      - key: ADMIN_SESSION_SECRET
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_MEDIACONVERT_ENDPOINT
+        sync: false
+      - key: AWS_MEDIACONVERT_ROLE_ARN
+        sync: false
+      - key: AWS_MEDIACONVERT_WEBHOOK_SECRET
+        sync: false
+      - key: AWS_CLOUDFRONT_DOMAIN
+        sync: false
+      - key: AWS_CLOUDFRONT_KEY_PAIR_ID
+        sync: false
+      - key: AWS_CLOUDFRONT_PRIVATE_KEY
+        sync: false
