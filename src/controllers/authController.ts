@@ -57,9 +57,18 @@ export async function getMe(req: AuthedRequest, res: Response) {
 // step immediately rather than waiting on the next user.updated webhook.
 export async function updateProfile(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const { name, email } = req.body as { name?: string; email?: string };
+  const { name, email, reducedMotion, dailyGoalTarget } = req.body as {
+    name?: string;
+    email?: string;
+    reducedMotion?: boolean;
+    dailyGoalTarget?: number;
+  };
   if (typeof name === "string" && name.trim()) req.dbUser.name = name.trim();
   if (typeof email === "string" && email.trim()) req.dbUser.email = email.trim();
+  if (typeof reducedMotion === "boolean") req.dbUser.reducedMotion = reducedMotion;
+  if (typeof dailyGoalTarget === "number" && Number.isFinite(dailyGoalTarget)) {
+    req.dbUser.dailyGoalTarget = Math.min(10, Math.max(1, Math.round(dailyGoalTarget)));
+  }
   await req.dbUser.save();
   res.json({ user: req.dbUser });
 }

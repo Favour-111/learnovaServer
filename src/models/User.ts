@@ -28,6 +28,10 @@ export interface IUser {
   lastActiveAt?: Date;
   pushTokens: string[];
   reducedMotion: boolean;
+  // How many lessons/day the Home screen's daily-goal card and
+  // GET /progress/daily-goal target — see getDailyGoal, which syncs each
+  // day's DailyGoal document to whatever this is set to.
+  dailyGoalTarget: number;
   savedCourses: Types.ObjectId[];
   // Optional because existing users predate this field — every reader
   // (notify.ts, the client) must treat a missing object as "everything on"
@@ -53,6 +57,7 @@ const userSchema = new Schema<IUser>(
     lastActiveAt: Date,
     pushTokens: { type: [String], default: [] },
     reducedMotion: { type: Boolean, default: false },
+    dailyGoalTarget: { type: Number, default: 4, min: 1, max: 10 },
     savedCourses: { type: [Schema.Types.ObjectId], ref: "Course", default: [] },
     notificationPreferences: {
       type: {

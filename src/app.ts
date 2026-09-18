@@ -1,3 +1,13 @@
+// Must be the very first import: it patches Express's Router so an async
+// route handler's rejected promise is forwarded to next(err) automatically.
+// Without it (plain Express 4 behavior), a thrown/rejected error inside any
+// `async function` route handler — a malformed ObjectId, a DB hiccup,
+// anything — becomes an unhandled rejection that crashes the whole process
+// instead of reaching errorHandler below, which already has the right
+// logic (e.g. mapping a Mongoose CastError to a clean 400) but was never
+// actually receiving these errors. This has to load before `routes` is
+// imported, since that's when the individual Router()s get constructed.
+import "express-async-errors";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";

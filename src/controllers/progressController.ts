@@ -99,9 +99,12 @@ export async function getDailyGoal(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const today = new Date().toISOString().slice(0, 10);
 
+  // targetLessons is always synced to the user's current preference (not
+  // just set once on insert) so changing it in Settings takes effect for
+  // today's already-created goal too, not just tomorrow's.
   const goal = await DailyGoal.findOneAndUpdate(
     { user: req.dbUser._id, date: today },
-    { $setOnInsert: { targetLessons: 4, completedLessons: 0 } },
+    { $set: { targetLessons: req.dbUser.dailyGoalTarget ?? 4 }, $setOnInsert: { completedLessons: 0 } },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
