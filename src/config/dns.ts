@@ -5,7 +5,7 @@ import net from "net";
 // times out on external hosts (MongoDB Atlas shard hosts, Clerk's API) that
 // Google/Cloudflare's resolvers answer fine. `dns.setServers()` alone isn't
 // enough: it only redirects the c-ares-based `dns.resolve*()` family (what
-// Mongoose's replica-set discovery uses) — `dns.lookup()`, which is what
+// Mongoose's replica-set discovery uses)  `dns.lookup()`, which is what
 // Node's native `fetch`/undici (and therefore Clerk's SDK) uses under the
 // hood, asks the OS resolver via getaddrinfo and ignores `setServers()`
 // entirely. So both pieces are needed: point the c-ares resolvers at a
@@ -41,7 +41,7 @@ dns.lookup = (hostname: string, optionsOrCallback: unknown, maybeCallback?: Look
     all?: boolean;
   };
 
-  // IP literals aren't DNS queries — dns.resolve* would reject them outright.
+  // IP literals aren't DNS queries  dns.resolve* would reject them outright.
   if (net.isIP(hostname)) {
     const family = net.isIP(hostname) === 6 ? 6 : 4;
     if (options.all) return callback(null, [{ address: hostname, family }]);

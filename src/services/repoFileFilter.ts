@@ -1,6 +1,6 @@
 import { TreeEntry } from "./github";
 
-// Repository safety/relevance filtering (spec section 5) — decides which
+// Repository safety/relevance filtering (spec section 5)  decides which
 // files are even worth fetching content for for evaluation. Applied to
 // every submitted repo before any content ever reaches the AI.
 
@@ -32,7 +32,7 @@ const BINARY_OR_MEDIA_EXTENSIONS = new Set([
 
 const LOCK_FILES = new Set(["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Gemfile.lock", "poetry.lock", "composer.lock"]);
 
-// Never fetch content for these regardless of anything else — real secrets
+// Never fetch content for these regardless of anything else  real secrets
 // or environment-specific values, not something an evaluator should read.
 const SENSITIVE_FILES = new Set([".env", ".env.local", ".env.production", ".env.development"]);
 
@@ -75,7 +75,7 @@ export interface RepoSummary {
   topLevelEntries: string[];
 }
 
-// Cheap stats over the WHOLE tree (not just the content-fetch subset) —
+// Cheap stats over the WHOLE tree (not just the content-fetch subset) 
 // used both for the static-analysis summary and as an integrity signal
 // (an "almost empty" repo is suspicious regardless of what we fetch).
 export function summarizeTree(entries: TreeEntry[], truncated: boolean): RepoSummary {

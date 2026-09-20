@@ -1,11 +1,11 @@
 // Orchestrates the project-evaluation pipeline end to end, working
-// entirely off the GitHub API (repo metadata, tree, and file contents) —
+// entirely off the GitHub API (repo metadata, tree, and file contents) 
 // no cloning, no `npm install`/`npm run build` execution anywhere. That's
 // a deliberate choice: there's no sandboxed/containerized execution
 // environment in this deployment, and running untrusted student code
 // directly on the main application server is exactly what we must never
 // do. The "build/tests" stage below honestly reports that it wasn't run,
-// rather than faking a result — wire a real sandbox runner (Docker with
+// rather than faking a result  wire a real sandbox runner (Docker with
 // --memory/--cpus/--network=none, or a managed sandbox service) into
 // `runBuildAndTests` later without touching anything else in this file.
 
@@ -51,7 +51,7 @@ export interface BuildRunResult {
 async function runBuildAndTests(): Promise<BuildRunResult> {
   return {
     executed: false,
-    summary: "Automated build/test execution is not available in this environment — evaluated from static file review only.",
+    summary: "Automated build/test execution is not available in this environment  evaluated from static file review only.",
   };
 }
 
@@ -94,7 +94,7 @@ export async function runProjectEvaluation(
   const treeSummary = summarizeTree(entries, truncated);
   const relevant = selectRelevantFiles(entries);
   const fetchedFiles: FetchedFile[] = [];
-  // Small concurrency cap — the file list is already bounded by
+  // Small concurrency cap  the file list is already bounded by
   // selectRelevantFiles, this just avoids firing 40 requests at once.
   const CONCURRENCY = 6;
   for (let i = 0; i < relevant.length; i += CONCURRENCY) {

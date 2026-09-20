@@ -1,6 +1,6 @@
 import { Schema, model, Types } from "mongoose";
 
-// Audit trail for achievement rewards, and — via the unique index below —
+// Audit trail for achievement rewards, and  via the unique index below 
 // a hard, DB-level guarantee that the same achievement never pays out
 // twice for the same user, independent of the UserAchievement.rewardGranted
 // flag (defense in depth, same pattern as Certificate's unique user+course

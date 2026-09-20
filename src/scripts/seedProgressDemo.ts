@@ -1,5 +1,5 @@
 // One-off dev seed: populates everything the redesigned Progress screen
-// needs — a skills-driving spread of enrollments, four real project
+// needs  a skills-driving spread of enrollments, four real project
 // attempts, a couple of unlocked achievements, and two certificates. Safe
 // to re-run (everything is upserted by a stable key).
 //
@@ -22,12 +22,12 @@ const DEMO_USER_EMAIL = "omojolaobaloluwa@gmail.com";
 
 // Skills bars on the Progress screen are just each course's own enrollment
 // progress, read back through the same title-keyword matching the app
-// already uses for course badges — so an "HTML" course needs to exist for
+// already uses for course badges  so an "HTML" course needs to exist for
 // an "HTML" skill bar to have something real to show.
 const HTML_COURSE = {
   slug: "html-fundamentals",
   title: "HTML Fundamentals",
-  description: "Semantic markup, forms, and accessibility — the foundation of the web.",
+  description: "Semantic markup, forms, and accessibility  the foundation of the web.",
   categorySlug: "development",
   difficulty: "beginner" as const,
   durationMinutes: 200,
@@ -72,7 +72,7 @@ async function main() {
   const category = await Category.findOne({ slug: HTML_COURSE.categorySlug });
   if (!category) {
     // eslint-disable-next-line no-console
-    console.warn(`[seed:progress] Category "${HTML_COURSE.categorySlug}" not found — run "npm run seed:dashboard" first.`);
+    console.warn(`[seed:progress] Category "${HTML_COURSE.categorySlug}" not found  run "npm run seed:dashboard" first.`);
     await mongoose.disconnect();
     return;
   }
@@ -101,7 +101,7 @@ async function main() {
   const user = await User.findOne({ email: DEMO_USER_EMAIL });
   if (!user) {
     // eslint-disable-next-line no-console
-    console.warn(`[seed:progress] No user found with email ${DEMO_USER_EMAIL} — sign in with that account once first, then re-run.`);
+    console.warn(`[seed:progress] No user found with email ${DEMO_USER_EMAIL}  sign in with that account once first, then re-run.`);
     await mongoose.disconnect();
     return;
   }

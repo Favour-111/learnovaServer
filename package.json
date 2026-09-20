@@ -2,7 +2,7 @@
   "name": "learnova-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Learnova API — Node.js + Express + TypeScript + MongoDB",
+  "description": "Learnova API  Node.js + Express + TypeScript + MongoDB",
   "main": "dist/server.js",
   "scripts": {
     "dev": "env -u ELECTRON_RUN_AS_NODE -u VSCODE_ESM_ENTRYPOINT -u NoDefaultCurrentDirectoryInExePath nodemon --watch src --ext ts --exec ts-node src/server.ts",

@@ -1,8 +1,8 @@
 // Must be the very first import: it patches Express's Router so an async
 // route handler's rejected promise is forwarded to next(err) automatically.
 // Without it (plain Express 4 behavior), a thrown/rejected error inside any
-// `async function` route handler — a malformed ObjectId, a DB hiccup,
-// anything — becomes an unhandled rejection that crashes the whole process
+// `async function` route handler  a malformed ObjectId, a DB hiccup,
+// anything  becomes an unhandled rejection that crashes the whole process
 // instead of reaching errorHandler below, which already has the right
 // logic (e.g. mapping a Mongoose CastError to a clean 400) but was never
 // actually receiving these errors. This has to load before `routes` is
@@ -24,7 +24,7 @@ export function createApp() {
 
   // Requests arrive via ngrok (dev) / a load balancer (prod) carrying
   // X-Forwarded-For, so Express needs to trust the first proxy hop to
-  // read the real client IP — without this express-rate-limit throws
+  // read the real client IP  without this express-rate-limit throws
   // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR on every request.
   app.set("trust proxy", 1);
 
@@ -45,7 +45,7 @@ export function createApp() {
   // signature, so capture them alongside the parsed body via `verify`
   // rather than trying to special-case that one route around this
   // global parser (Express commits to one body-parsing strategy per
-  // request — you can't re-read the stream in a route-level middleware).
+  // request  you can't re-read the stream in a route-level middleware).
   app.use(
     express.json({
       limit: "2mb",
@@ -57,7 +57,7 @@ export function createApp() {
   app.use(express.urlencoded({ extended: true }));
 
   // Verifies the session JWT (if present) and populates getAuth(req) for
-  // every downstream route — this replaces the deprecated, unmaintained
+  // every downstream route  this replaces the deprecated, unmaintained
   // @clerk/clerk-sdk-node's per-route ClerkExpressRequireAuth()/WithAuth(),
   // which crashed the process on real (non-empty) JWTs.
   app.use(clerkMiddleware());

@@ -20,20 +20,27 @@ export interface IUser {
   xp: number;
   credits: number;
   streakDays: number;
-  // YYYY-MM-DD (UTC) of the last day real learning activity was recorded —
+  // YYYY-MM-DD (UTC) of the last day real learning activity was recorded 
   // the anchor recordDailyActivity() (services/achievements.ts) uses to
   // decide whether today continues the streak, resets it, or (repeat
   // activity same day) leaves it untouched.
   lastStreakDate?: string;
   lastActiveAt?: Date;
+  // IANA zone name (e.g. "America/New_York") anchoring the streak system's
+  // 1:00 AM daily boundary (services/streak.ts)  captured once from the
+  // device on first launch/login and deliberately never auto-resynced
+  // afterward (learnovaApp/app/_layout.tsx), so changing the phone's
+  // timezone can't shift a learner's streak boundary. Undefined for a user
+  // who hasn't had one captured yet; every reader falls back to UTC.
+  timezone?: string;
   pushTokens: string[];
   reducedMotion: boolean;
   // How many lessons/day the Home screen's daily-goal card and
-  // GET /progress/daily-goal target — see getDailyGoal, which syncs each
+  // GET /progress/daily-goal target  see getDailyGoal, which syncs each
   // day's DailyGoal document to whatever this is set to.
   dailyGoalTarget: number;
   savedCourses: Types.ObjectId[];
-  // Optional because existing users predate this field — every reader
+  // Optional because existing users predate this field  every reader
   // (notify.ts, the client) must treat a missing object as "everything on"
   // rather than silently going quiet for people who never touched Settings.
   notificationPreferences?: INotificationPreferences;
@@ -55,6 +62,7 @@ const userSchema = new Schema<IUser>(
     streakDays: { type: Number, default: 0 },
     lastStreakDate: String,
     lastActiveAt: Date,
+    timezone: String,
     pushTokens: { type: [String], default: [] },
     reducedMotion: { type: Boolean, default: false },
     dailyGoalTarget: { type: Number, default: 4, min: 1, max: 10 },

@@ -28,7 +28,7 @@ export interface ILesson {
   course: Types.ObjectId;
   title: string;
   description?: string;
-  // Deprecated in favor of `video` below — kept working (not just kept in
+  // Deprecated in favor of `video` below  kept working (not just kept in
   // the schema, but actively read) so lessons created before the Dual Video
   // Source feature don't need to be recreated. New code should read/write
   // `video`; see normalizeLessonVideo() in services/video.ts, which is what

@@ -2,13 +2,13 @@ import { Response } from "express";
 import { AuthedRequest } from "../middleware/auth";
 import { createPresignedUploadUrl, signCloudFrontUrl } from "../services/aws";
 
-const ALLOWED_FOLDERS = ["categories", "courses"] as const;
+const ALLOWED_FOLDERS = ["categories", "courses", "quizzes"] as const;
 type ImageFolder = (typeof ALLOWED_FOLDERS)[number];
 
-// POST /api/admin/uploads/image — { fileName, contentType, folder }
+// POST /api/admin/uploads/image  { fileName, contentType, folder }
 // Same presigned-S3-PUT pattern as the lesson video pipeline (the admin
 // panel uploads the file bytes straight to S3, never through this server),
-// but with no transcode step — the object key is deterministic, so the
+// but with no transcode step  the object key is deterministic, so the
 // final `imageUrl` is already known and returned in this one call instead
 // of needing a separate upload-complete step.
 //

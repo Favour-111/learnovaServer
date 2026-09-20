@@ -6,7 +6,7 @@ export interface IRubricCriterion {
   weightPercent: number;
 }
 
-// A single checkable requirement — verified (met/partial/not_met) by the
+// A single checkable requirement  verified (met/partial/not_met) by the
 // evaluator, never just by the student submitting. Embedded on Project
 // (the definition) and echoed with a status on ProjectAttempt (the result),
 // same pattern as `rubric` below.
@@ -35,7 +35,7 @@ export interface IProject {
   bonusXp: number;
   rubric: IRubricCriterion[];
   submissionMethods: ("github" | "zip" | "url" | "screenshots")[];
-  // GitHub-first submission config (the MVP flow) — kept alongside the
+  // GitHub-first submission config (the MVP flow)  kept alongside the
   // older submissionMethods list rather than replacing it, since that
   // field predates this feature and other submission types may still use it.
   githubRequired: boolean;

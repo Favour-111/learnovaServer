@@ -18,7 +18,7 @@ function randomSuffix(): string {
 
 // Generates a unique, human-scannable certificate ID like "WD-2026-8F72A1"
 // and a verification QR code pointing at the admin's public verify page.
-// Idempotent per user+course (backed by a unique index on the model) — a
+// Idempotent per user+course (backed by a unique index on the model)  a
 // learner can only ever hold one certificate for a given course, so a
 // retrigger just returns the one already on file instead of erroring or
 // minting a duplicate.

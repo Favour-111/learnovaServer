@@ -6,7 +6,7 @@
 // lesson-for-lesson) plus a real course PDF, so "Course content" is genuine,
 // navigable data for every course, not just the one that was hand-built.
 //
-// Video: unlike the JS course, these don't get a previewVideoId — reusing
+// Video: unlike the JS course, these don't get a previewVideoId  reusing
 // one real video across unrelated topics (attaching a JS tutorial to an
 // "Ethical Hacking" course, say) would be actively misleading, and I'd
 // rather leave the banner's play button off entirely (which the UI already
@@ -546,7 +546,7 @@ const COURSES: CourseSpec[] = [
         ],
       },
       {
-        title: "Supervised Learning — Regression",
+        title: "Supervised Learning  Regression",
         lessons: [
           { title: "Linear Regression", minutes: 12 },
           { title: "Evaluating Regression Models", minutes: 10 },
@@ -555,7 +555,7 @@ const COURSES: CourseSpec[] = [
         ],
       },
       {
-        title: "Supervised Learning — Classification",
+        title: "Supervised Learning  Classification",
         lessons: [
           { title: "Logistic Regression", minutes: 12 },
           { title: "Decision Trees", minutes: 11 },
@@ -941,7 +941,7 @@ async function main() {
     const course = await Course.findOne({ slug: spec.slug });
     if (!course) {
       // eslint-disable-next-line no-console
-      console.warn(`[seed] skipping ${spec.slug} — course not found`);
+      console.warn(`[seed] skipping ${spec.slug}  course not found`);
       // eslint-disable-next-line no-continue
       continue;
     }

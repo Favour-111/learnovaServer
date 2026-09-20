@@ -4,7 +4,7 @@ export interface IEnrollment {
   user: Types.ObjectId;
   course: Types.ObjectId;
   status: "active" | "completed";
-  // Only meaningful for premium courses — false until the learner spends
+  // Only meaningful for premium courses  false until the learner spends
   // credits via POST /courses/:id/purchase. Free courses are never gated on
   // this (checks only apply when the course itself is isPremium).
   isPaid: boolean;

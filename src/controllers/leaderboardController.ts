@@ -19,7 +19,7 @@ export async function getCurrentLeaderboard(req: AuthedRequest, res: Response) {
     .populate("user", "name avatarUrl");
 
   // The board is still active, so nothing has actually been paid out yet
-  // (creditsAwarded stays 0 until settleWeeklyLeaderboard runs at week end) —
+  // (creditsAwarded stays 0 until settleWeeklyLeaderboard runs at week end) 
   // this is what each rank WOULD earn if the week ended right now.
   const top = entries.map((entry) => ({
     ...entry.toObject(),
@@ -42,7 +42,7 @@ export async function getCurrentLeaderboard(req: AuthedRequest, res: Response) {
     }
   }
 
-  // Everyone else — no XP this week, so no competitive rank (never a fake
+  // Everyone else  no XP this week, so no competitive rank (never a fake
   // #4/#5/etc for sitting at 0). Still shown, just unranked, ordered
   // deterministically by first name rather than left to whatever order
   // they happen to come back in.

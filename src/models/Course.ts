@@ -12,7 +12,7 @@ export interface ICourse {
   previewVideoId?: string;
   pdfUrl?: string;
   // Markdown-lite (headings via #/##/###, blank-line paragraphs, -/* lists,
-  // **bold**) rendered natively by the app's own in-app document reader —
+  // **bold**) rendered natively by the app's own in-app document reader 
   // pdfUrl is kept only as a legacy fallback for courses that never got this.
   materialContent?: string;
   // Cost in the app's in-app credit currency to unlock a premium course.
@@ -46,7 +46,7 @@ const courseSchema = new Schema<ICourse>(
     difficulty: { type: String, enum: ["beginner", "intermediate", "advanced"], default: "beginner" },
     thumbnailUrl: String,
     // YouTube video id (not a full URL) for the course preview/trailer, kept
-    // consistent with Lesson.videoId — frontend builds the watch/embed URL.
+    // consistent with Lesson.videoId  frontend builds the watch/embed URL.
     previewVideoId: String,
     pdfUrl: String,
     materialContent: String,

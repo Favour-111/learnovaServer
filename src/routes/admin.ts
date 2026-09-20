@@ -33,7 +33,7 @@ const router = Router();
 router.use(requireAuth, attachDbUser, requireAdmin);
 
 // Express 4 doesn't forward a rejected promise from an async handler to
-// next(err) on its own — an uncaught rejection here (e.g. a Mongoose
+// next(err) on its own  an uncaught rejection here (e.g. a Mongoose
 // ValidationError from a malformed create/update body) crashes the whole
 // process instead of just answering the one request with a 400. Every
 // handler below is wrapped in try/catch for exactly that reason.
@@ -88,7 +88,7 @@ router.use("/courses", crud(Course));
 router.use("/modules", crud(Module));
 router.use("/lessons", crud(Lesson)); // POST/PUT body includes youtubeUrl -> extract videoId client-side in admin before saving
 
-// Dual Video Source — these live outside crud(Lesson) since they're
+// Dual Video Source  these live outside crud(Lesson) since they're
 // actions, not plain field updates (each has its own validation and, for
 // uploads, talks to AWS). See controllers/videoController.ts.
 router.post("/lessons/:id/video/youtube", setYouTubeVideo);
@@ -96,9 +96,9 @@ router.post("/lessons/:id/video/upload-url", createUploadUrl);
 router.post("/lessons/:id/video/upload-complete", completeUpload);
 router.post("/lessons/:id/video/retry", retryProcessing);
 
-// PUT /admin/lessons/:id/publish — mirrors /courses/:id/publish below.
+// PUT /admin/lessons/:id/publish  mirrors /courses/:id/publish below.
 // Lives outside crud(Lesson) since flipping isPublished false->true is the
-// "new_lesson" notification trigger, not a plain field edit — only users
+// "new_lesson" notification trigger, not a plain field edit  only users
 // already enrolled in the lesson's course get notified.
 router.put("/lessons/:id/publish", async (req, res) => {
   const { isPublished } = req.body as { isPublished: boolean };
@@ -125,7 +125,7 @@ router.put("/lessons/:id/publish", async (req, res) => {
 });
 
 // Generic image upload for Category "Learning Path" artwork and Course
-// thumbnails — same presigned-S3 pattern as the video pipeline above, just
+// thumbnails  same presigned-S3 pattern as the video pipeline above, just
 // with no transcode step. See controllers/uploadController.ts.
 router.post("/uploads/image", getImageUploadUrl);
 
@@ -135,7 +135,7 @@ async function regenerateQuestions(quizId: unknown, topic: string, count?: numbe
   const questionCount = Math.min(Math.max(Number(count) || 20, 1), 30);
   const generated = await generateQuizQuestions(topic, questionCount);
   if (generated.length === 0) {
-    throw new Error("AI did not return any usable questions — try rephrasing the topic.");
+    throw new Error("AI did not return any usable questions  try rephrasing the topic.");
   }
 
   await Question.deleteMany({ quiz: quizId });
@@ -153,7 +153,7 @@ async function regenerateQuestions(quizId: unknown, topic: string, count?: numbe
   );
 }
 
-// POST /api/admin/quizzes/:id/generate-questions — replaces this quiz's
+// POST /api/admin/quizzes/:id/generate-questions  replaces this quiz's
 // question set with a fresh AI-generated one from a short topic description.
 // Lives outside crud(Quiz) since it's an action (and talks to OpenAI), not a
 // plain field update.
@@ -174,7 +174,7 @@ router.post("/quizzes/:id/generate-questions", async (req, res) => {
   }
 });
 
-// POST /api/admin/modules/:id/generate-quiz — the one-step "describe the
+// POST /api/admin/modules/:id/generate-quiz  the one-step "describe the
 // module, get a full quiz" flow: creates the module's quiz if it doesn't
 // have one yet (reuses it if it does), then (re)generates its questions.
 // Lets an admin go straight from a module to a ready quiz without first
@@ -212,7 +212,7 @@ router.use("/questions", crud(Question));
 router.use("/projects", crud(Project)); // body.rubric is the configurable per-project weighting
 router.use("/achievements", crud(Achievement));
 
-// POST /admin/achievements/recalculate-all — re-evaluates every active
+// POST /admin/achievements/recalculate-all  re-evaluates every active
 // achievement against every user's real current state. Meant to be run
 // once after adding a new achievement (or changing an existing one's
 // requirement) so existing users who already qualify get unlocked/rewarded
@@ -244,7 +244,7 @@ router.put("/users/:id/role", async (req, res) => {
   res.json({ user });
 });
 
-// GET /admin/submissions?project=<id>&status=passed|failed — the project
+// GET /admin/submissions?project=<id>&status=passed|failed  the project
 // param scopes this to "submissions for one project" (section 15's "View
 // submissions"); status=passed/failed further scopes to
 // "View passed/failed projects" without needing separate routes.
@@ -275,7 +275,7 @@ router.get("/submissions", async (req, res, next) => {
   }
 });
 
-// GET /admin/submissions/:id — full detail for the admin review screen:
+// GET /admin/submissions/:id  full detail for the admin review screen:
 // student, project, the evaluated commit, automated checks, AI evaluation,
 // requirement verification, and this student's full attempt history on
 // this project (so admin can see the progression across resubmissions).
@@ -297,14 +297,14 @@ router.get("/submissions/:id", async (req, res, next) => {
   }
 });
 
-// POST /admin/submissions/:id/override — manual override of an evaluation
+// POST /admin/submissions/:id/override  manual override of an evaluation
 // result, with a required reason (section 16). Updates both the audit
 // trail on the submission and the attempt itself (so every other view of
-// this attempt reflects the override) — flipping a fail into a pass also
+// this attempt reflects the override)  flipping a fail into a pass also
 // runs the same idempotent reward/achievement path a normal pass would,
 // so the student isn't shorted XP/credits just because a human corrected
 // the AI's read. Flipping a pass into a fail does NOT claw back any reward
-// already paid out — that reversal isn't implemented.
+// already paid out  that reversal isn't implemented.
 router.post("/submissions/:id/override", async (req: AuthedRequest, res, next) => {
   try {
     const { overriddenScore, overriddenPassed, note } = req.body as {
@@ -341,7 +341,7 @@ router.post("/submissions/:id/override", async (req: AuthedRequest, res, next) =
     };
     await submission.save();
 
-    // Newly passed by override — same idempotency guard as a normal pass
+    // Newly passed by override  same idempotency guard as a normal pass
     // (a user who already passed a prior attempt gets nothing here either).
     if (overriddenPassed && !wasPassed) {
       const project = await Project.findById(submission.project);
@@ -385,7 +385,7 @@ router.get("/notifications", async (req, res) => {
   res.json({ notifications });
 });
 
-// DELETE /admin/notifications/:id — admin can delete any user's notification
+// DELETE /admin/notifications/:id  admin can delete any user's notification
 // (unlike the learner-facing DELETE /api/notifications/:id, which is scoped
 // to req.dbUser's own notifications).
 router.delete("/notifications/:id", async (req, res) => {
@@ -423,7 +423,7 @@ router.put("/courses/:id/publish", async (req, res) => {
   res.json({ course });
 });
 
-// POST /admin/announcements — a one-off broadcast to every user (feature
+// POST /admin/announcements  a one-off broadcast to every user (feature
 // releases, events, maintenance windows). No separate "Announcement"
 // entity: the per-user Notification docs this creates are the record,
 // same as every other notification type in this system.
@@ -439,7 +439,7 @@ router.post("/announcements", async (req, res) => {
   res.status(201).json({ notifiedCount: allUserIds.length });
 });
 
-// GET /api/admin/dashboard — top-line stats for the admin home screen.
+// GET /api/admin/dashboard  top-line stats for the admin home screen.
 router.get("/dashboard", async (req, res) => {
   const [userCount, courseCount, publishedCourseCount, certificateCount, projectAttempts] = await Promise.all([
     User.countDocuments(),
@@ -453,7 +453,7 @@ router.get("/dashboard", async (req, res) => {
 
 const TEXT_ASSIST_ACTIONS: TextAssistAction[] = ["rewrite", "complete", "shorten", "lengthen"];
 
-// POST /api/admin/ai/assist — the rewrite/complete/shorten/lengthen button
+// POST /api/admin/ai/assist  the rewrite/complete/shorten/lengthen button
 // on admin text fields. Admin-only (this router's blanket requireAdmin),
 // separate from the learner-facing /api/ai/* routes.
 router.post("/ai/assist", async (req, res) => {

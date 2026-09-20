@@ -7,9 +7,10 @@ import { DailyGoal } from "../models/DailyGoal";
 import { CreditTransaction } from "../models/CreditTransaction";
 import { AuthedRequest } from "../middleware/auth";
 import { levelForXp, nextLevel, STREAK_RESTORE_COST } from "../config/gamification";
-import { getStreakStatus, yesterdayStr, todayStr } from "../services/achievements";
+import { getStreakState, todayStr } from "../services/streak";
+import { addDaysToDateStr } from "../services/streakTime";
 
-// GET /api/progress — aggregate stats for the Progress screen.
+// GET /api/progress  aggregate stats for the Progress screen.
 export async function getProgress(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const userId = req.dbUser._id;
@@ -32,7 +33,7 @@ export async function getProgress(req: AuthedRequest, res: Response) {
 
   const currentLevel = levelForXp(req.dbUser.xp);
   const upcomingLevel = nextLevel(req.dbUser.xp);
-  const { streakAtRisk } = getStreakStatus(req.dbUser.streakDays, req.dbUser.lastStreakDate);
+  const streak = getStreakState(req.dbUser.streakDays, req.dbUser.lastStreakDate, req.dbUser.timezone);
 
   res.json({
     totalXp: req.dbUser.xp,
@@ -45,8 +46,11 @@ export async function getProgress(req: AuthedRequest, res: Response) {
     averageProjectScore: avgProjectScore,
     quizAverage: avgQuizScore,
     quizzesCompleted: quizAttempts.length,
-    learningStreak: req.dbUser.streakDays,
-    streakAtRisk,
+    learningStreak: streak.streakDays,
+    streakAtRisk: streak.streakAtRisk,
+    streakState: streak.state,
+    streakPreviousDays: streak.previousStreakDays,
+    streakNextBoundaryAt: streak.nextBoundaryAt,
     certificates: certificateCount,
     recentProjects: recentAttempts.map((a) => ({
       title: (a.project as unknown as { title?: string })?.title ?? "Project",
@@ -55,16 +59,17 @@ export async function getProgress(req: AuthedRequest, res: Response) {
   });
 }
 
-// POST /api/progress/restore-streak — spends STREAK_RESTORE_COST credits to
-// heal a broken streak instead of letting it reset to 0/1. Only works while
-// getStreakStatus says the streak is actually at risk — recomputed here
-// server-side rather than trusted from whatever the client last saw.
+// POST /api/progress/restore-streak  spends STREAK_RESTORE_COST credits to
+// heal a broken streak instead of letting it reset to 0/1. Only works once
+// getStreakState says the streak has actually finalized as MISSED 
+// recomputed here server-side rather than trusted from whatever the client
+// last saw.
 export async function restoreStreak(req: AuthedRequest, res: Response, next: NextFunction) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const { streakAtRisk } = getStreakStatus(req.dbUser.streakDays, req.dbUser.lastStreakDate);
-    if (!streakAtRisk) {
+    const streak = getStreakState(req.dbUser.streakDays, req.dbUser.lastStreakDate, req.dbUser.timezone);
+    if (streak.state !== "MISSED") {
       return res.status(400).json({ error: "Your streak isn't at risk right now." });
     }
     if (req.dbUser.credits < STREAK_RESTORE_COST) {
@@ -72,11 +77,11 @@ export async function restoreStreak(req: AuthedRequest, res: Response, next: Nex
     }
 
     req.dbUser.credits -= STREAK_RESTORE_COST;
-    // Heals the gap by pretending the last active day was yesterday — the
+    // Heals the gap by pretending the last active day was yesterday  the
     // next lesson completion then goes through recordDailyActivity's normal
     // "continues streak" path and increments like nothing happened, instead
     // of resetting to 1.
-    req.dbUser.lastStreakDate = yesterdayStr(todayStr());
+    req.dbUser.lastStreakDate = addDaysToDateStr(todayStr(req.dbUser.timezone), -1);
     await req.dbUser.save();
 
     await CreditTransaction.create({
@@ -92,12 +97,12 @@ export async function restoreStreak(req: AuthedRequest, res: Response, next: Nex
   }
 }
 
-// GET /api/progress/daily-goal — today's lesson goal for the Home screen.
+// GET /api/progress/daily-goal  today's lesson goal for the Home screen.
 // Created on first read for the day (same date key lessonController uses
 // when it increments completedLessons on lesson completion).
 export async function getDailyGoal(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr(req.dbUser.timezone);
 
   // targetLessons is always synced to the user's current preference (not
   // just set once on insert) so changing it in Settings takes effect for

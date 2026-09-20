@@ -1,5 +1,5 @@
 // Server-side gamification rules. XP/Credit calculations must never be
-// trusted from the client — everything here is the single source of truth.
+// trusted from the client  everything here is the single source of truth.
 // A later phase can move this into an admin-editable DB collection; the
 // shape is deliberately simple so that migration is a drop-in.
 
@@ -42,14 +42,13 @@ export const XP_RULES = {
 export const LEADERBOARD_WEEKLY_POOL_CREDITS = 15000;
 export const LEADERBOARD_REWARD_DISTRIBUTION = [5000, 3500, 2500, 2000, 2000];
 
-// Spent to heal a broken streak (see progressController.restoreStreak) —
-// only usable while the streak is actually "at risk" (services/achievements
-// getStreakStatus): a real gap since the last active day, with something to
-// lose. Missing this window and then completing a lesson just resets the
-// streak to 1 for free, same as it always has.
+// Spent to heal a broken streak (see progressController.restoreStreak) 
+// only usable once the streak has actually finalized as MISSED
+// (services/streak.getStreakState). Missing this window and then completing
+// a lesson just resets the streak to 1 for free, same as it always has.
 export const STREAK_RESTORE_COST = 20;
 
-// Achievement rewards are no longer hardcoded here — each Achievement
+// Achievement rewards are no longer hardcoded here  each Achievement
 // document carries its own `reward: { xp, credits }` (see models/Achievement
 // and services/achievements.ts), editable from the admin panel without a
 // code deploy.

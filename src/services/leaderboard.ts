@@ -33,20 +33,20 @@ export async function getOrCreateCurrentLeaderboard() {
 }
 
 // Ranking is purely weekly XP earned (sum of XPTransaction amounts since
-// weekStart) — purchased/awarded Credits never factor in here. A user with
-// no XPTransaction this week never appears here at all — no fake rank for
+// weekStart)  purchased/awarded Credits never factor in here. A user with
+// no XPTransaction this week never appears here at all  no fake rank for
 // sitting at 0.
 //
 // Ties are broken deterministically, never by whatever order Mongo happens
 // to return: highest weekly XP first, then whoever's most recent XP
 // transaction this week (the moment their running total arrived at that
 // number) came earliest, then first name alphabetically. This is the only
-// place `rank` gets assigned — both the live Ranks tab and
+// place `rank` gets assigned  both the live Ranks tab and
 // settleWeeklyLeaderboard's payout read it from here, so fixing the
 // tie-break here fixes both.
 //
 // The aggregation + bulkWrite below is real work (a collection-wide scan
-// of this week's XPTransactions, then a write) — it used to run on every
+// of this week's XPTransactions, then a write)  it used to run on every
 // single GET /leaderboard/current, i.e. every user's every visit to the
 // Ranks tab, which both mutates data on a read endpoint and gets more
 // expensive as transaction volume grows. `force` aside (settling the week
@@ -121,7 +121,7 @@ export async function settleWeeklyLeaderboard() {
     // eslint-disable-next-line no-await-in-loop
     await entry.save();
 
-    // Covers any achievement whose metric is leaderboard_top5_finishes —
+    // Covers any achievement whose metric is leaderboard_top5_finishes 
     // must run after entry.creditsAwarded is persisted, since that's what
     // the metric counts.
     // eslint-disable-next-line no-await-in-loop

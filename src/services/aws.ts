@@ -7,7 +7,7 @@ import { env } from "../config/env";
 function requireAwsConfig(...names: (keyof typeof env.aws)[]) {
   const missing = names.filter((n) => !env.aws[n]);
   if (missing.length > 0) {
-    throw new Error(`This upload feature isn't configured yet — missing env var(s): ${missing.map((n) => `AWS_${String(n).replace(/([A-Z])/g, "_$1").toUpperCase()}`).join(", ")}`);
+    throw new Error(`This upload feature isn't configured yet  missing env var(s): ${missing.map((n) => `AWS_${String(n).replace(/([A-Z])/g, "_$1").toUpperCase()}`).join(", ")}`);
   }
 }
 
@@ -29,7 +29,7 @@ function getMediaConvertClient(): MediaConvertClient {
   return mediaConvertClient;
 }
 
-// POST /video/upload-url — the admin PUTs the raw file straight to this URL;
+// POST /video/upload-url  the admin PUTs the raw file straight to this URL;
 // the file body never touches the Learnova backend.
 export async function createPresignedUploadUrl(key: string, contentType: string): Promise<string> {
   requireAwsConfig("region", "accessKeyId", "secretAccessKey", "s3Bucket");
@@ -46,7 +46,7 @@ const RENDITIONS = [
 
 // Submits one HLS job producing all four renditions as a single adaptive-
 // bitrate output group. `outputKeyPrefix` is where the .m3u8 + segments
-// land (e.g. `videos/<lessonId>/hls/`) — the master playlist ends up at
+// land (e.g. `videos/<lessonId>/hls/`)  the master playlist ends up at
 // `${outputKeyPrefix}master.m3u8`.
 export async function submitMediaConvertTranscodeJob(inputKey: string, outputKeyPrefix: string): Promise<string> {
   requireAwsConfig("region", "accessKeyId", "secretAccessKey", "s3Bucket", "mediaConvertEndpoint", "mediaConvertRoleArn");
@@ -84,7 +84,7 @@ export async function submitMediaConvertTranscodeJob(inputKey: string, outputKey
       ],
     },
     // Surfaces on the EventBridge "MediaConvert Job State Change" event as
-    // `detail.userMetadata` — how the webhook maps a completed job back to
+    // `detail.userMetadata`  how the webhook maps a completed job back to
     // the lesson that kicked it off.
     UserMetadata: { outputKeyPrefix },
   });
@@ -95,7 +95,7 @@ export async function submitMediaConvertTranscodeJob(inputKey: string, outputKey
   return jobId;
 }
 
-// Canned-policy CloudFront signed URL, short-lived — generated fresh on
+// Canned-policy CloudFront signed URL, short-lived  generated fresh on
 // every playback request rather than stored, so access always re-checks
 // enrollment first (see videoController.getPlaybackUrl).
 export function signCloudFrontUrl(path: string, expiresInSeconds = 3600): string {

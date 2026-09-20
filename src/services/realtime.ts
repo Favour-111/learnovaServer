@@ -7,7 +7,7 @@ import { env } from "../config/env";
 let io: SocketIOServer | null = null;
 
 // One socket.io server attached to the same HTTP server Express already
-// listens on — no separate port, no separate deploy target. A single
+// listens on  no separate port, no separate deploy target. A single
 // generic "user:update" event (rather than a growing zoo of specific event
 // types) tells every screen the current user has open that SOMETHING about
 // their xp/credits/progress/enrollments changed, so it just refetches its

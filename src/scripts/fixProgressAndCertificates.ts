@@ -5,7 +5,7 @@
 //  2. A learner could end up with more than one certificate for the same
 //     course if course-completion rewards re-fired after the course was
 //     already marked complete.
-// Safe to re-run — it only recomputes/dedupes, it doesn't grant anything.
+// Safe to re-run  it only recomputes/dedupes, it doesn't grant anything.
 import mongoose from "mongoose";
 import { connectDB } from "../config/db";
 import { Lesson } from "../models/Lesson";

@@ -1,5 +1,5 @@
 // One-off dev seed: populates the Home dashboard with data you can see and
-// work with — a handful of courses, category tags, enrollments in progress,
+// work with  a handful of courses, category tags, enrollments in progress,
 // today's daily goal, and XP/credits/streak on one named account. Safe to
 // re-run (everything is upserted by a stable key).
 //
@@ -13,7 +13,7 @@ import { Enrollment } from "../models/Enrollment";
 import { DailyGoal } from "../models/DailyGoal";
 
 // The account the "put credits and xp for me" request refers to. Must
-// already exist (created by the Clerk sign-in webhook) — we only ever
+// already exist (created by the Clerk sign-in webhook)  we only ever
 // update it by email, never create a fake user, so a real sign-in never
 // collides with a seeded duplicate.
 const DEMO_USER_EMAIL = "omojolaobaloluwa@gmail.com";
@@ -47,7 +47,7 @@ const COURSES: Array<{
   {
     slug: "javascript-fundamentals",
     title: "JavaScript Fundamentals",
-    description: "Variables, Data Types & Functions — the core building blocks of JavaScript.",
+    description: "Variables, Data Types & Functions  the core building blocks of JavaScript.",
     categorySlug: "development",
     difficulty: "beginner",
     durationMinutes: 320,
@@ -137,7 +137,7 @@ const COURSES: Array<{
   {
     slug: "ethical-hacking-fundamentals",
     title: "Ethical Hacking Fundamentals",
-    description: "Learn how attackers think — reconnaissance, common exploits, and how to defend against them.",
+    description: "Learn how attackers think  reconnaissance, common exploits, and how to defend against them.",
     categorySlug: "cybersecurity",
     difficulty: "beginner",
     durationMinutes: 300,
@@ -167,7 +167,7 @@ const COURSES: Array<{
   {
     slug: "machine-learning-basics",
     title: "Machine Learning Basics",
-    description: "Core ML concepts — regression, classification, and training your first models.",
+    description: "Core ML concepts  regression, classification, and training your first models.",
     categorySlug: "ai",
     difficulty: "intermediate",
     durationMinutes: 420,
@@ -212,7 +212,7 @@ const COURSES: Array<{
   {
     slug: "aws-cloud-practitioner",
     title: "AWS Cloud Practitioner",
-    description: "Get hands-on with core AWS services — compute, storage, and deployment basics.",
+    description: "Get hands-on with core AWS services  compute, storage, and deployment basics.",
     categorySlug: "cloud",
     difficulty: "beginner",
     durationMinutes: 300,
@@ -292,7 +292,7 @@ async function main() {
   if (!user) {
     // eslint-disable-next-line no-console
     console.warn(
-      `[seed:dashboard] No user found with email ${DEMO_USER_EMAIL} — courses/categories were seeded, ` +
+      `[seed:dashboard] No user found with email ${DEMO_USER_EMAIL}  courses/categories were seeded, ` +
         `but XP/credits/enrollments were skipped. Sign in with that account once first, then re-run this script.`
     );
   } else {

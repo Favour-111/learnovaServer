@@ -1,25 +1,36 @@
 // Run daily (via your host's scheduled-job feature, e.g. a cron trigger on
 // Railway/Render, or a system crontab pointing at `npm run cron:streak-reminders`).
-// Finds every user whose streak is at risk today and hasn't already been
-// reminded today, and sends them a "Keep Your Streak Alive" notification.
+// Finds every user whose streak has actually finalized as MISSED today
+// (services/streak.getStreakState  a per-user timezone + 1AM-boundary
+// check, not a single global cutoff) and hasn't already been reminded
+// today, and sends them a "Keep Your Streak Alive" notification.
+//
+// Caveat: this still runs on a single daily trigger (whatever cadence your
+// host's scheduler is configured for), not once per user's own midnight 
+// with learners spread across timezones, "today" finalizes at a different
+// real-world moment for each of them, so depending on when this job runs
+// some users may be checked a little before or after their own boundary.
+// The in-app streak state itself is always correct regardless (computed
+// fresh per-request); this only affects reminder *timing*, not accuracy.
 import mongoose from "mongoose";
 import { connectDB } from "../config/db";
 import { User } from "../models/User";
 import { Notification } from "../models/Notification";
-import { getStreakStatus, todayStr } from "../services/achievements";
+import { getStreakState, todayStr } from "../services/streak";
+import { zonedTimeToUtc } from "../services/streakTime";
 import { notifyUser } from "../services/notify";
 
 async function main() {
   await connectDB();
 
-  const startOfToday = new Date(`${todayStr()}T00:00:00.000Z`);
-  const users = await User.find({ streakDays: { $gt: 0 } }, "_id streakDays lastStreakDate");
+  const users = await User.find({ streakDays: { $gt: 0 } }, "_id streakDays lastStreakDate timezone");
 
   let remindedCount = 0;
   for (const user of users) {
-    const { streakAtRisk } = getStreakStatus(user.streakDays, user.lastStreakDate);
-    if (!streakAtRisk) continue;
+    const streak = getStreakState(user.streakDays, user.lastStreakDate, user.timezone);
+    if (streak.state !== "MISSED") continue;
 
+    const startOfToday = zonedTimeToUtc(todayStr(user.timezone), 0, 0, user.timezone || "UTC");
     // eslint-disable-next-line no-await-in-loop
     const alreadyRemindedToday = await Notification.exists({
       user: user._id,

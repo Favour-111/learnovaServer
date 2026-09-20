@@ -6,12 +6,16 @@ import { User } from "../models/User";
 import { LessonProgress } from "../models/LessonProgress";
 import { Enrollment } from "../models/Enrollment";
 import { QuizAttempt } from "../models/QuizAttempt";
+import { Quiz } from "../models/Quiz";
 import { ProjectAttempt } from "../models/ProjectAttempt";
 import { Certificate } from "../models/Certificate";
 import { LeaderboardEntry } from "../models/LeaderboardEntry";
 import { DailyGoal } from "../models/DailyGoal";
 import { Notification } from "../models/Notification";
 import { awardXpAndCredits } from "./gamification";
+import { todayStr } from "./streak";
+
+export { todayStr, getStreakState, recordDailyActivity } from "./streak";
 
 export interface UnlockedAchievement {
   _id: Types.ObjectId;
@@ -24,7 +28,7 @@ export interface UnlockedAchievement {
 }
 
 // The generic, DB-derived measurements every achievement's `requirement`
-// can point at. This is the ONLY place that knows how to compute a metric —
+// can point at. This is the ONLY place that knows how to compute a metric 
 // achievements themselves carry no logic, just {metric, operator, value},
 // so a new achievement built from an existing metric (the overwhelming
 // majority of cases) is a pure admin-panel row with no code change.
@@ -43,7 +47,8 @@ const METRICS: Record<AchievementMetric, (userId: Types.ObjectId) => Promise<num
     return LessonProgress.countDocuments({ user: userId, isCompleted: true });
   },
   async lessons_completed_today(userId) {
-    const goal = await DailyGoal.findOne({ user: userId, date: todayStr() }).select("completedLessons");
+    const user = await User.findById(userId).select("timezone");
+    const goal = await DailyGoal.findOne({ user: userId, date: todayStr(user?.timezone) }).select("completedLessons");
     return goal?.completedLessons ?? 0;
   },
   async courses_completed(userId) {
@@ -56,6 +61,15 @@ const METRICS: Record<AchievementMetric, (userId: Types.ObjectId) => Promise<num
   async quiz_score(userId) {
     const best = await QuizAttempt.findOne({ user: userId }).sort({ scorePercent: -1 }).select("scorePercent");
     return best?.scorePercent ?? 0;
+  },
+  // Distinct Quiz.category values among this user's passed attempts  e.g.
+  // "Knowledge Seeker: complete quizzes from 5 different categories".
+  // Quizzes with no category set (module quizzes predating standalone
+  // quizzes) simply don't contribute to this one.
+  async quiz_categories_completed(userId) {
+    const passedQuizIds = await QuizAttempt.distinct("quiz", { user: userId, passed: true });
+    const categories = await Quiz.distinct("category", { _id: { $in: passedQuizIds }, category: { $ne: null } });
+    return categories.length;
   },
   async projects_completed(userId) {
     return ProjectAttempt.countDocuments({ user: userId, passed: true });
@@ -72,7 +86,7 @@ const METRICS: Record<AchievementMetric, (userId: Types.ObjectId) => Promise<num
   },
 };
 
-// Which metrics a given learning-action event can possibly affect — lets
+// Which metrics a given learning-action event can possibly affect  lets
 // evaluateAchievements skip achievements it already knows can't have
 // changed, instead of recomputing all 9 metrics on every single event.
 // Adding a new event that reuses an existing metric is a one-line addition
@@ -80,8 +94,8 @@ const METRICS: Record<AchievementMetric, (userId: Types.ObjectId) => Promise<num
 const EVENT_METRICS: Record<string, AchievementMetric[]> = {
   LESSON_COMPLETED: ["lessons_completed", "lessons_completed_today", "learning_streak", "user_level"],
   VIDEO_COMPLETED: ["lessons_completed", "lessons_completed_today", "learning_streak", "user_level"],
-  QUIZ_COMPLETED: ["quizzes_completed", "quiz_score", "user_level"],
-  QUIZ_PASSED: ["quizzes_completed", "quiz_score", "user_level"],
+  QUIZ_COMPLETED: ["quizzes_completed", "quiz_score", "user_level", "learning_streak"],
+  QUIZ_PASSED: ["quizzes_completed", "quiz_score", "quiz_categories_completed", "user_level", "learning_streak"],
   COURSE_COMPLETED: ["courses_completed", "user_level"],
   PROJECT_SUBMITTED: ["projects_completed", "project_score", "user_level"],
   PROJECT_COMPLETED: ["projects_completed", "project_score", "user_level"],
@@ -107,52 +121,10 @@ function compare(operator: AchievementOperator, value: number, target: number): 
   }
 }
 
-export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export function yesterdayStr(base: string): string {
-  const d = new Date(`${base}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
-// A streak is "at risk" once there's a real gap since the last active day —
-// not today, not yesterday — and there's something to actually lose. This
-// is purely derived from lastStreakDate vs today, so it never needs its own
-// persisted flag: the moment the user completes another lesson without
-// restoring, recordDailyActivity's own gap check resets streakDays to 1
-// anyway, which naturally closes the restore window.
-export function getStreakStatus(streakDays: number, lastStreakDate?: string): { streakDays: number; streakAtRisk: boolean } {
-  if (!lastStreakDate || streakDays === 0) return { streakDays, streakAtRisk: false };
-  const today = todayStr();
-  if (lastStreakDate === today || lastStreakDate === yesterdayStr(today)) return { streakDays, streakAtRisk: false };
-  return { streakDays, streakAtRisk: true };
-}
-
-// Real, backend-computed learning streak. Call exactly once per calendar
-// day per user — the caller (grantLessonCompletion) gates this on "was this
-// the day's first completed lesson" (DailyGoal.completedLessons === 1 right
-// after the increment), and this function *also* independently no-ops if
-// lastStreakDate is already today, so a duplicate call is always harmless.
-// The client is never trusted with this value — it's derived purely from
-// server-side activity records.
-export async function recordDailyActivity(userId: Types.ObjectId): Promise<void> {
-  const today = todayStr();
-  const user = await User.findById(userId).select("streakDays lastStreakDate");
-  if (!user) return;
-  if (user.lastStreakDate === today) return;
-
-  const continuesStreak = user.lastStreakDate === yesterdayStr(today);
-  user.streakDays = continuesStreak ? user.streakDays + 1 : 1;
-  user.lastStreakDate = today;
-  await user.save();
-}
-
 // Upserts this user's progress against one achievement and, if the
 // requirement is newly met, marks it completed and grants the reward
 // exactly once. The RewardTransaction's unique (user, achievement) index is
-// the hard guarantee against a duplicate payout — the rewardGranted flag on
+// the hard guarantee against a duplicate payout  the rewardGranted flag on
 // UserAchievement is just the fast-path check that avoids hitting it.
 async function upsertProgressAndMaybeUnlock(
   userId: Types.ObjectId,
@@ -186,7 +158,7 @@ async function upsertProgressAndMaybeUnlock(
       description: `Achievement unlocked: ${achievement.name}`,
     });
   } catch {
-    // Unique (user, achievement) index — another concurrent evaluation
+    // Unique (user, achievement) index  another concurrent evaluation
     // already granted this reward. Make sure our flag catches up and stop.
     existing.rewardGranted = true;
     existing.rewardGrantedAt = existing.rewardGrantedAt ?? new Date();
@@ -206,7 +178,7 @@ async function upsertProgressAndMaybeUnlock(
     user: userId,
     type: "achievement_unlocked",
     title: "Achievement unlocked!",
-    body: `You earned "${achievement.name}" — +${achievement.reward.xp} XP, +${achievement.reward.credits} Credits.`,
+    body: `You earned "${achievement.name}"  +${achievement.reward.xp} XP, +${achievement.reward.credits} Credits.`,
     data: { achievementId: achievement._id, achievementKey: achievement.key },
   });
 
@@ -222,7 +194,7 @@ async function upsertProgressAndMaybeUnlock(
 }
 
 // Event-driven achievement evaluation. Call after any action that could
-// have satisfied an achievement's requirement — pass the event so only the
+// have satisfied an achievement's requirement  pass the event so only the
 // metrics that action could plausibly have moved get recomputed; omit it
 // (see recalculateUserAchievements) to recheck everything.
 export async function evaluateAchievements(userId: Types.ObjectId, event?: { type: string }): Promise<UnlockedAchievement[]> {
@@ -261,7 +233,7 @@ export async function evaluateAchievements(userId: Types.ObjectId, event?: { typ
 }
 
 // For existing users when an achievement is added/changed after the fact,
-// or as a general repair tool — recomputes every active achievement's
+// or as a general repair tool  recomputes every active achievement's
 // progress for this user from their real current state and unlocks/rewards
 // anything now met. Safe to call as often as needed (fully idempotent).
 export async function recalculateUserAchievements(userId: Types.ObjectId): Promise<UnlockedAchievement[]> {

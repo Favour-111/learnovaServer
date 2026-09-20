@@ -27,7 +27,7 @@ const userAchievementSchema = new Schema<IUserAchievement>(
   { timestamps: true }
 );
 
-// One progress record per user+achievement — the evaluator upserts against
+// One progress record per user+achievement  the evaluator upserts against
 // this, never creates a second row for the same pair.
 userAchievementSchema.index({ user: 1, achievement: 1 }, { unique: true });
 

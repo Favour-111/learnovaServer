@@ -17,10 +17,10 @@ interface PushContent {
 
 // Sends one push per recipient (fanning out to every device token they have
 // registered), chunked to Expo's request-size limit. Tickets are Expo's
-// *immediate* accept/reject response — a subset of delivery failures (a
+// *immediate* accept/reject response  a subset of delivery failures (a
 // token Expo already knows is dead) show up here; the rest only surface on
 // the separate receipts endpoint ~15 minutes later, which this doesn't poll
-// yet. Never awaited by callers that fan out to many users — a failed push
+// yet. Never awaited by callers that fan out to many users  a failed push
 // send should never fail the request that triggered it.
 export async function sendPushToUsers(recipients: PushRecipient[], content: PushContent): Promise<void> {
   const messages: ExpoPushMessage[] = [];

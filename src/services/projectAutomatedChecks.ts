@@ -68,7 +68,7 @@ function checkTechnologyPresent(name: string, dependencyNames: string[], detecte
   return lowerDeps.some((d) => d.includes(needle)) || lowerDetected.some((d) => d.includes(needle));
 }
 
-// Objective, deterministic checks that don't need the AI at all — these
+// Objective, deterministic checks that don't need the AI at all  these
 // results are handed to the AI as ground truth it must respect (e.g. it
 // can't claim "no React" when package.json clearly lists it), and drive
 // the requirement-verification checklist alongside the AI's own read.
@@ -112,7 +112,7 @@ export function runAutomatedChecks(
   };
 }
 
-// Non-accusatory integrity signals (spec section 14) — surfaced to admins
+// Non-accusatory integrity signals (spec section 14)  surfaced to admins
 // for review, never used to auto-reject or auto-flag a student as cheating.
 export function runIntegrityChecks(checks: AutomatedCheckResult, treeSummary: RepoSummary): IntegrityCheckResult {
   const flags: string[] = [];

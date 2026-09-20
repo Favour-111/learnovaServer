@@ -1,6 +1,6 @@
 import { env } from "../config/env";
 
-// All GitHub access lives here, server-side only — the mobile/admin clients
+// All GitHub access lives here, server-side only  the mobile/admin clients
 // never see a token and never talk to GitHub directly (section 4/23 of the
 // project-evaluation spec). Unauthenticated requests work fine for public
 // repos (60 req/hr); set GITHUB_TOKEN in .env to raise that to 5000/hr and,
@@ -51,20 +51,20 @@ async function githubFetch(path: string): Promise<Response> {
   try {
     res = await fetch(`${GITHUB_API}${path}`, { headers: authHeaders() });
   } catch {
-    throw new GithubAccessError("Couldn't reach GitHub — network error.", "network_error");
+    throw new GithubAccessError("Couldn't reach GitHub  network error.", "network_error");
   }
   if (res.status === 403 || res.status === 429) {
-    throw new GithubAccessError("GitHub API rate limit reached — try again shortly.", "rate_limited");
+    throw new GithubAccessError("GitHub API rate limit reached  try again shortly.", "rate_limited");
   }
   return res;
 }
 
-// GET /repos/:owner/:repo — confirms the repo exists and is reachable, and
+// GET /repos/:owner/:repo  confirms the repo exists and is reachable, and
 // returns the info needed to pull its default-branch tree next.
 export async function fetchRepoMeta(parsed: ParsedRepoUrl): Promise<RepoMeta> {
   const res = await githubFetch(`/repos/${parsed.owner}/${parsed.repo}`);
   if (res.status === 404) {
-    throw new GithubAccessError("Repository not found — check the URL and that it's public.", "not_found");
+    throw new GithubAccessError("Repository not found  check the URL and that it's public.", "not_found");
   }
   if (!res.ok) {
     throw new GithubAccessError(`GitHub returned an error (${res.status}) fetching the repository.`, "inaccessible");
@@ -84,11 +84,11 @@ export interface CommitInfo {
   date: string;
 }
 
-// GET /repos/:owner/:repo/commits/:branch — the tip commit of the branch
+// GET /repos/:owner/:repo/commits/:branch  the tip commit of the branch
 // being evaluated. This SHA is what gets stored on the submission/attempt,
 // so a later push to the same repo never makes an old score look current.
 //
-// This is also the real "is this repo empty" check — GitHub's repo `size`
+// This is also the real "is this repo empty" check  GitHub's repo `size`
 // field is NOT reliable for that (it's a periodically-recomputed storage
 // stat that can read 0 for small/brand-new repos that already have real
 // committed content). A genuinely empty repo (no commits at all) instead
@@ -96,7 +96,7 @@ export interface CommitInfo {
 export async function fetchLatestCommit(parsed: ParsedRepoUrl, branch: string): Promise<CommitInfo> {
   const res = await githubFetch(`/repos/${parsed.owner}/${parsed.repo}/commits/${encodeURIComponent(branch)}`);
   if (res.status === 409 || res.status === 404) {
-    throw new GithubAccessError("This repository is empty — push your code before submitting.", "empty");
+    throw new GithubAccessError("This repository is empty  push your code before submitting.", "empty");
   }
   if (!res.ok) {
     throw new GithubAccessError("Couldn't read the repository's commit history.", "inaccessible");
@@ -111,7 +111,7 @@ export interface TreeEntry {
   size?: number;
 }
 
-// GET /repos/:owner/:repo/git/trees/:sha?recursive=1 — the full file listing
+// GET /repos/:owner/:repo/git/trees/:sha?recursive=1  the full file listing
 // at the evaluated commit. `truncated` (GitHub caps very large trees) is
 // surfaced so callers can flag "repo larger than we could fully inspect"
 // rather than silently evaluating a partial listing.
@@ -127,7 +127,7 @@ export async function fetchRepoTree(parsed: ParsedRepoUrl, commitSha: string): P
   };
 }
 
-// Fetches a file's raw text content at the evaluated commit — raw.githubusercontent.com
+// Fetches a file's raw text content at the evaluated commit  raw.githubusercontent.com
 // serves plain bytes (no JSON/base64 wrapping), which is both simpler and
 // keeps this off the stricter api.github.com rate-limit bucket.
 export async function fetchFileContent(parsed: ParsedRepoUrl, commitSha: string, path: string): Promise<string | null> {

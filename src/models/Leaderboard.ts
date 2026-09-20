@@ -6,7 +6,7 @@ export interface ILeaderboard {
   status: "active" | "frozen" | "settled";
   rewardsDistributedAt?: Date;
   // Last time recomputeCurrentLeaderboard() actually ran the weekly
-  // aggregation + LeaderboardEntry bulkWrite — lets reads throttle that
+  // aggregation + LeaderboardEntry bulkWrite  lets reads throttle that
   // (relatively expensive, and a write) work instead of repeating it on
   // every single GET /leaderboard/current.
   entriesRecomputedAt?: Date;

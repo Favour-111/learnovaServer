@@ -16,7 +16,7 @@ export function notFoundHandler(req: Request, res: Response) {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
   // A malformed create/update body (missing required field, wrong type,
-  // bad ObjectId) is a client mistake, not a server failure — map
+  // bad ObjectId) is a client mistake, not a server failure  map
   // Mongoose's own error types to 400 instead of the default 500 so admin
   // forms get a real message back instead of "Internal server error".
   const isMongooseValidation = err instanceof Error && (err.name === "ValidationError" || err.name === "CastError");

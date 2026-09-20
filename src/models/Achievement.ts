@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 // Every metric the generic evaluator (services/achievements.ts) knows how to
 // compute from real user data. Adding a NEW achievement that reuses one of
-// these needs zero code changes — just an admin-panel row. Only a genuinely
+// these needs zero code changes  just an admin-panel row. Only a genuinely
 // new *kind* of measurement needs a new metric added to that file's
 // METRICS map (and, ideally, here too so the admin dropdown stays in sync).
 export type AchievementMetric =
@@ -13,6 +13,7 @@ export type AchievementMetric =
   | "courses_completed"
   | "quizzes_completed"
   | "quiz_score"
+  | "quiz_categories_completed"
   | "projects_completed"
   | "project_score"
   | "certificates_earned"
@@ -73,6 +74,7 @@ const achievementSchema = new Schema<IAchievement>(
           "courses_completed",
           "quizzes_completed",
           "quiz_score",
+          "quiz_categories_completed",
           "projects_completed",
           "project_score",
           "certificates_earned",

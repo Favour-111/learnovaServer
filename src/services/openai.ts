@@ -23,7 +23,7 @@ const TEXT_ASSIST_INSTRUCTIONS: Record<TextAssistAction, string> = {
 };
 
 // Admin-panel writing assist (rewrite/complete/shorten/lengthen) for course,
-// lesson, quiz, and achievement copy — a thin single-purpose completion,
+// lesson, quiz, and achievement copy  a thin single-purpose completion,
 // not a chat: no history, just the instruction + the field's current text.
 export async function assistText(text: string, action: TextAssistAction): Promise<string> {
   const openai = getClient();
@@ -32,7 +32,7 @@ export async function assistText(text: string, action: TextAssistAction): Promis
     messages: [
       {
         role: "system",
-        content: `You are a writing assistant embedded in Learnova's admin panel, helping an admin edit course/lesson copy. ${TEXT_ASSIST_INSTRUCTIONS[action]} Respond with ONLY the resulting text — no preamble, no quotes, no explanation.`,
+        content: `You are a writing assistant embedded in Learnova's admin panel, helping an admin edit course/lesson copy. ${TEXT_ASSIST_INSTRUCTIONS[action]} Respond with ONLY the resulting text  no preamble, no quotes, no explanation.`,
       },
       { role: "user", content: text },
     ],
@@ -50,7 +50,7 @@ export interface GeneratedQuestion {
   explanation: string;
 }
 
-// Admin "Generate with AI" button on the Quiz/Question page — the admin
+// Admin "Generate with AI" button on the Quiz/Question page  the admin
 // describes what the module covers and gets back a full set of ready-to-save
 // questions instead of writing each one by hand. json_object mode + a strict
 // shape description keeps the output directly usable without a human
@@ -121,7 +121,7 @@ export async function askTutor(context: TutorContext, question: string, history:
 Current context: course "${context.courseName}", module "${context.moduleName}", lesson "${context.lessonName}".
 The learner is at level ${context.userLevel}. Adapt explanations to that level.
 You can explain concepts, simplify ideas, give examples, explain errors, create practice questions, and give hints.
-For graded quizzes, exercises, and projects: guide the learner toward the answer with hints and questions of your own —
+For graded quizzes, exercises, and projects: guide the learner toward the answer with hints and questions of your own 
 never simply state the final graded answer.`;
 
   const response = await openai.chat.completions.create({
@@ -144,17 +144,17 @@ interface EvaluationFileEvidence {
 interface EvaluationInput {
   projectTitle: string;
   projectDescription: string;
-  // Only these, by key — the AI is explicitly told not to invent
+  // Only these, by key  the AI is explicitly told not to invent
   // requirements or rubric categories beyond what the admin configured.
   requirements: { key: string; label: string }[];
   rubric: { key: string; label: string; weightPercent: number }[];
   // Deterministic, non-AI ground truth (package.json parsing, file
-  // presence, required-technology detection) — included so the AI can't
+  // presence, required-technology detection)  included so the AI can't
   // contradict objective facts (e.g. claiming "no tests" when test files
   // were found, or "missing React" when package.json lists it).
   automatedChecksSummary: string;
   buildSummary: string;
-  // Curated file contents (see services/repoFileFilter.ts) — filtered,
+  // Curated file contents (see services/repoFileFilter.ts)  filtered,
   // size-capped, secrets/binaries/lockfiles/node_modules already excluded
   // before this ever gets built. This is real code, deliberately, so the
   // AI can give genuine code-quality/best-practices/UI-UX feedback; it's
@@ -176,7 +176,7 @@ export interface EvaluationResult {
 // Turns curated repo evidence + deterministic automated-check results into
 // rubric-weighted scores, per-requirement verification, and human feedback.
 // The AI never invents requirements/criteria (only the configured ones are
-// even given to it) and never decides the final score — that's always
+// even given to it) and never decides the final score  that's always
 // recomputed here from the rubric weights, regardless of what the model
 // itself might have summed to.
 export async function evaluateProjectWithAI(input: EvaluationInput): Promise<EvaluationResult> {
@@ -186,9 +186,9 @@ export async function evaluateProjectWithAI(input: EvaluationInput): Promise<Eva
   const filesDescription = input.files.map((f) => `--- ${f.path} ---\n${f.content}`).join("\n\n");
 
   const systemPrompt = `You are Learnova's project evaluator. Evaluate the submitted project STRICTLY against the
-requirements and rubric categories given below — do not invent, add, or evaluate against anything not listed here.
+requirements and rubric categories given below  do not invent, add, or evaluate against anything not listed here.
 You are given a curated (filtered, size-capped) subset of the repository's real files, plus deterministic automated
-check results computed by the backend (trust these facts — do not contradict them, e.g. if a dependency is marked
+check results computed by the backend (trust these facts  do not contradict them, e.g. if a dependency is marked
 present, do not claim it's missing).
 
 Requirements to verify (mark each as "met", "partial", or "not_met" with a short note):
@@ -211,7 +211,7 @@ Respond ONLY with JSON matching:
   const userPrompt = `Project: ${input.projectTitle}
 ${input.projectDescription}
 
-Automated check results (ground truth — trust these):
+Automated check results (ground truth  trust these):
 ${input.automatedChecksSummary}
 
 Build/test run:
@@ -234,7 +234,7 @@ ${filesDescription || "(no readable source files were found)"}`;
   const requirementResults = (parsed.requirementResults ?? []) as EvaluationResult["requirementResults"];
 
   // The final score is ALWAYS recomputed here from the configured rubric
-  // weights — never trusted from whatever (if anything) the model itself
+  // weights  never trusted from whatever (if anything) the model itself
   // summed to, per Learnova's scoring-integrity requirement.
   const totalScore = Math.round(
     input.rubric.reduce((sum, r) => {

@@ -2,7 +2,7 @@
 
 Node.js + Express + TypeScript API backing both `learnovaApp` (mobile) and
 `admin` (web). This is the only project that talks to MongoDB, Clerk's
-secret key, and OpenAI — never expose those to the clients.
+secret key, and OpenAI  never expose those to the clients.
 
 ## Setup
 
@@ -27,14 +27,14 @@ recommendation endpoint, and a generic CRUD admin API for
 courses/modules/lessons/quizzes/questions/projects/categories/achievements.
 
 **Stubbed with clear extension points:**
-- `src/services/projectEvaluationPipeline.ts` — repo/zip extraction, static
+- `src/services/projectEvaluationPipeline.ts`  repo/zip extraction, static
   analysis, and the isolated Docker sandbox test runner are typed but throw
   "not implemented". The GPT scoring step downstream of them is fully wired
   (`services/openai.ts`). This is real infrastructure (job queue +
   Docker-in-Docker or a managed sandbox) that depends on your deploy target.
-- `src/controllers/certificateController.ts#downloadCertificate` — PDF
+- `src/controllers/certificateController.ts#downloadCertificate`  PDF
   generation isn't wired up yet.
-- Push notification *sending* (FCM) isn't implemented — tokens are
+- Push notification *sending* (FCM) isn't implemented  tokens are
   collected (`POST /api/notifications/register-token`) but no dispatcher
   exists yet.
 
@@ -47,18 +47,18 @@ command to run weekly.
 
 ## Notes on the stack
 
-Auth runs on **`@clerk/express`**, not `@clerk/clerk-sdk-node` — the latter
+Auth runs on **`@clerk/express`**, not `@clerk/clerk-sdk-node`  the latter
 was deprecated in October 2024 and its `ClerkExpressRequireAuth()` middleware
 crashes the whole process on a real (non-empty) JWT, which manifests as a
 504/connection-reset or, once nodemon gives up restarting after a crash, a
 misleading 404 on the *next* request. `clerkMiddleware()` is mounted once,
 globally, in `app.ts`; `src/middleware/auth.ts`'s `requireAuth`/
 `attachDbUser`/`attachDbUserOptional`/`requireAdmin` are thin wrappers around
-`getAuth(req)` — every route file already imports those by name, so nothing
+`getAuth(req)`  every route file already imports those by name, so nothing
 else needed to change.
 
 ## Connecting clients
 
 Both `learnovaApp` and `admin` reach this API over HTTP only, via
-`EXPO_PUBLIC_API_URL` / `NEXT_PUBLIC_API_URL` respectively — see the root
+`EXPO_PUBLIC_API_URL` / `NEXT_PUBLIC_API_URL` respectively  see the root
 README. Set `CORS_ORIGINS` here to match wherever they're actually running.

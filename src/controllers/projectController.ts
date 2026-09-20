@@ -22,7 +22,7 @@ export async function getProject(req: AuthedRequest, res: Response) {
   let isLocked = true;
   if (req.dbUser) {
     attempts = await ProjectAttempt.find({ user: req.dbUser._id, project: project._id }).sort({ attemptNumber: 1 }).populate("evaluation");
-    // Computed BEFORE the populate below — isModuleComplete needs the raw
+    // Computed BEFORE the populate below  isModuleComplete needs the raw
     // ObjectId, not the populated module document.
     isLocked = !(await isModuleComplete(req.dbUser._id, project.module));
   }
@@ -31,7 +31,7 @@ export async function getProject(req: AuthedRequest, res: Response) {
   res.json({ project, attempts, isLocked });
 }
 
-// POST /api/projects/:id/validate-github — lets the mobile submission form
+// POST /api/projects/:id/validate-github  lets the mobile submission form
 // confirm a repo URL is real and reachable before the student commits to a
 // full submission, without spending an attempt.
 export async function validateGithubRepo(req: AuthedRequest, res: Response) {
@@ -53,9 +53,9 @@ export async function validateGithubRepo(req: AuthedRequest, res: Response) {
 // POST /api/projects/:id/submit
 // Creates the submission and hands it straight back (so the mobile UI can
 // show a live "Evaluating…" screen immediately), then runs the actual
-// evaluation in the background — GET /api/submissions/:id is what the
+// evaluation in the background  GET /api/submissions/:id is what the
 // client polls for stage/result. There's no durable job queue behind this
-// (no Redis/worker infra in this deployment) — it's an in-process async
+// (no Redis/worker infra in this deployment)  it's an in-process async
 // task, which is enough for evaluation runs that take single-digit seconds,
 // but won't survive a server restart mid-evaluation (a submission stuck in
 // "processing" after a restart can simply be resubmitted).
@@ -64,7 +64,7 @@ export async function submitProject(req: AuthedRequest, res: Response) {
   const project = await Project.findById(req.params.id);
   if (!project) return res.status(404).json({ error: "Project not found" });
 
-  // Never trust the client's view of lock state — re-check server-side
+  // Never trust the client's view of lock state  re-check server-side
   // even if the mobile UI already hid the submit form.
   if (!(await isModuleComplete(req.dbUser._id, project.module))) {
     return res.status(403).json({ error: "Complete all lessons in this module before submitting the project." });
@@ -82,7 +82,7 @@ export async function submitProject(req: AuthedRequest, res: Response) {
     branch?: string;
   };
 
-  // The MVP evaluation pipeline only knows how to inspect a GitHub repo —
+  // The MVP evaluation pipeline only knows how to inspect a GitHub repo 
   // project.githubRequired is a display/validation hint for the client,
   // but the backend can't evaluate anything without a repo URL regardless
   // of that flag.
@@ -106,7 +106,7 @@ export async function submitProject(req: AuthedRequest, res: Response) {
     stage: "validating",
   });
 
-  // Fire-and-forget — internally try/catches everything, so this can never
+  // Fire-and-forget  internally try/catches everything, so this can never
   // become an unhandled rejection regardless of what fails inside.
   void evaluateSubmission(submission._id, req.dbUser._id, project._id, githubUrl!, branch, existingAttemptCount + 1);
 
@@ -134,7 +134,7 @@ async function evaluateSubmission(
     const passed = ai.totalScore >= project.passingScore;
 
     // Idempotent reward: only the FIRST time this project is passed by this
-    // user awards XP/credits — a re-evaluation (even one that passes again,
+    // user awards XP/credits  a re-evaluation (even one that passes again,
     // or passes with a higher score) never pays out twice.
     const alreadyPassedBefore = await ProjectAttempt.exists({ user: userId, project: projectId, passed: true });
     const isFirstPass = passed && !alreadyPassedBefore;
@@ -151,7 +151,7 @@ async function evaluateSubmission(
       : null;
 
     // ProjectAttempt.evaluation is optional (defaults to null), but
-    // AIEvaluation.projectAttempt is required — so the attempt has to exist
+    // AIEvaluation.projectAttempt is required  so the attempt has to exist
     // first. Creating AIEvaluation with a placeholder null (the old order)
     // fails schema validation before it can ever be backfilled.
     const attempt = await ProjectAttempt.create({
@@ -185,7 +185,7 @@ async function evaluateSubmission(
     await attempt.save();
 
     // Covers any achievement whose metric is projects_completed/project_score
-    // — decided purely from ProjectAttempt history, so this runs on every
+    //  decided purely from ProjectAttempt history, so this runs on every
     // submission (already idempotent per-achievement via its own reward guard).
     const achievementsUnlocked = await evaluateAchievements(userId, { type: "PROJECT_SUBMITTED" });
 
@@ -218,7 +218,7 @@ async function evaluateSubmission(
   }
 }
 
-// GET /api/submissions/:id — polled by the mobile client while a
+// GET /api/submissions/:id  polled by the mobile client while a
 // submission is queued/processing to drive the live evaluation-stage UI,
 // and once more to render the final result.
 export async function getSubmission(req: AuthedRequest, res: Response) {
@@ -228,7 +228,7 @@ export async function getSubmission(req: AuthedRequest, res: Response) {
     populate: { path: "evaluation" },
   });
   if (!submission) return res.status(404).json({ error: "Submission not found" });
-  // A student can only ever see their own submissions — admins use the
+  // A student can only ever see their own submissions  admins use the
   // separate /admin/submissions endpoints, which check role instead.
   if (String(submission.user) !== String(req.dbUser._id)) {
     return res.status(403).json({ error: "Forbidden" });
@@ -236,7 +236,7 @@ export async function getSubmission(req: AuthedRequest, res: Response) {
   res.json({ submission });
 }
 
-// GET /api/projects/:id/attempts — full retry history for a project.
+// GET /api/projects/:id/attempts  full retry history for a project.
 export async function getProjectAttempts(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const attempts = await ProjectAttempt.find({ user: req.dbUser._id, project: req.params.id })

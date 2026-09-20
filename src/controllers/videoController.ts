@@ -7,19 +7,19 @@ import { createPresignedUploadUrl, submitMediaConvertTranscodeJob, signCloudFron
 import { normalizeLessonVideo, extractYouTubeVideoId } from "../services/video";
 import { env } from "../config/env";
 
-// POST /api/admin/lessons/:id/video/youtube — { url }
+// POST /api/admin/lessons/:id/video/youtube  { url }
 export async function setYouTubeVideo(req: AuthedRequest, res: Response) {
   const { url } = req.body as { url?: string };
   if (!url || !url.trim()) return res.status(400).json({ error: "A YouTube URL is required" });
 
   const videoId = extractYouTubeVideoId(url);
-  if (!videoId) return res.status(400).json({ error: "Couldn't find a video id in that URL — check it's a valid YouTube link" });
+  if (!videoId) return res.status(400).json({ error: "Couldn't find a video id in that URL  check it's a valid YouTube link" });
 
   const lesson = await Lesson.findById(req.params.id);
   if (!lesson) return res.status(404).json({ error: "Lesson not found" });
 
   lesson.video = { type: "youtube", youtube: { videoId, url } };
-  // Kept in sync for any old code path still reading these directly —
+  // Kept in sync for any old code path still reading these directly 
   // normalizeLessonVideo() means nothing strictly needs this anymore, but
   // it costs nothing to keep both shapes consistent.
   lesson.videoProvider = "youtube";
@@ -29,7 +29,7 @@ export async function setYouTubeVideo(req: AuthedRequest, res: Response) {
   res.json({ lesson, video: normalizeLessonVideo(lesson) });
 }
 
-// POST /api/admin/lessons/:id/video/upload-url — { fileName, contentType }
+// POST /api/admin/lessons/:id/video/upload-url  { fileName, contentType }
 // Returns a presigned S3 PUT URL; the admin uploads the file bytes straight
 // to S3 from the browser, never through this server.
 export async function createUploadUrl(req: AuthedRequest, res: Response) {
@@ -55,7 +55,7 @@ export async function createUploadUrl(req: AuthedRequest, res: Response) {
   res.json({ uploadUrl, originalKey });
 }
 
-// POST /api/admin/lessons/:id/video/upload-complete — { originalKey }
+// POST /api/admin/lessons/:id/video/upload-complete  { originalKey }
 // Called once the browser's direct PUT to S3 finishes; kicks off the
 // MediaConvert HLS job and flips status to "processing".
 export async function completeUpload(req: AuthedRequest, res: Response) {
@@ -88,7 +88,7 @@ export async function completeUpload(req: AuthedRequest, res: Response) {
   res.json({ lesson, video: normalizeLessonVideo(lesson) });
 }
 
-// POST /api/admin/lessons/:id/video/retry — resubmits the MediaConvert job
+// POST /api/admin/lessons/:id/video/retry  resubmits the MediaConvert job
 // for a lesson whose processing previously failed.
 export async function retryProcessing(req: AuthedRequest, res: Response) {
   const lesson = await Lesson.findById(req.params.id);
@@ -111,7 +111,7 @@ export async function retryProcessing(req: AuthedRequest, res: Response) {
   }
 }
 
-// GET /api/lessons/:id/video/playback-url — student-facing. Re-checks
+// GET /api/lessons/:id/video/playback-url  student-facing. Re-checks
 // course enrollment on every call rather than trusting a cached
 // entitlement, since this is the one place a signed, time-limited URL to
 // the private video actually gets handed out.
@@ -150,7 +150,7 @@ export async function getPlaybackUrl(req: AuthedRequest, res: Response) {
   }
 }
 
-// POST /api/webhooks/mediaconvert — EventBridge "MediaConvert Job State
+// POST /api/webhooks/mediaconvert  EventBridge "MediaConvert Job State
 // Change" -> API destination. Configure the destination's connection with
 // a custom header `x-webhook-secret: <AWS_MEDIACONVERT_WEBHOOK_SECRET>` so
 // this endpoint can verify the request actually came from that rule.
@@ -164,7 +164,7 @@ export async function mediaConvertWebhook(req: AuthedRequest, res: Response) {
 
   const lesson = await Lesson.findOne({ "video.uploaded.mediaConvertJobId": detail.jobId });
   if (!lesson || lesson.video?.type !== "uploaded" || !lesson.video.uploaded) {
-    // Not necessarily a problem — could be an event for a job from a
+    // Not necessarily a problem  could be an event for a job from a
     // different environment sharing the same AWS account/queue.
     return res.status(200).json({ ignored: true });
   }
@@ -177,7 +177,7 @@ export async function mediaConvertWebhook(req: AuthedRequest, res: Response) {
     lesson.video.uploaded.status = "failed";
     lesson.video.uploaded.failureReason = detail.errorMessage ?? "MediaConvert job failed";
   } else {
-    // PROGRESSING / other transient states — nothing to update yet.
+    // PROGRESSING / other transient states  nothing to update yet.
     return res.status(200).json({ ok: true });
   }
 

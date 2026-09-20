@@ -10,7 +10,7 @@ import { CreditTransaction } from "../models/CreditTransaction";
 import { AuthedRequest } from "../middleware/auth";
 import { emitUserUpdate } from "../services/realtime";
 
-// Trimmed from list responses — large, detail-only content that no list
+// Trimmed from list responses  large, detail-only content that no list
 // card reads (course/[id].tsx's material reader is the only consumer of
 // materialContent; pdfUrl is a legacy fallback for the same reader). Kept
 // on the single-course endpoint (getCourse) where it's actually used.
@@ -20,7 +20,7 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 
 // GET /api/courses?tab=all|popular|new|free|premium&category=&search=&page=&limit=
-// `page`/`limit` are optional — omitting them preserves the old "give me
+// `page`/`limit` are optional  omitting them preserves the old "give me
 // up to 50" behavior for callers that just want a small bounded set (Home's
 // carousels, the categories-derivation fetch on the Courses tab) without
 // forcing every call site to become pagination-aware. The Courses tab's
@@ -48,7 +48,7 @@ export async function listCourses(req: AuthedRequest, res: Response) {
   ]);
 
   // Signed-out browsing (or a session with nothing saved yet) just skips
-  // this — the bookmark icon on the client defaults to the outline state.
+  // this  the bookmark icon on the client defaults to the outline state.
   const savedIds = req.dbUser?.savedCourses;
   const coursesJson = savedIds
     ? courses.map((c) => ({ ...c.toObject(), isSaved: savedIds.some((id) => id.equals(c._id)) }))
@@ -60,7 +60,7 @@ export async function listCourses(req: AuthedRequest, res: Response) {
   });
 }
 
-// GET /api/courses/saved — the learner's bookmarked courses, for the
+// GET /api/courses/saved  the learner's bookmarked courses, for the
 // Favorites screen. Separate from listCourses' isSaved flag (which just
 // marks courses already being browsed) since this is the one place a saved
 // course with no other traffic (not enrolled, not in "popular") still needs
@@ -72,7 +72,7 @@ export async function listSavedCourses(req: AuthedRequest, res: Response) {
   res.json({ courses: coursesJson });
 }
 
-// GET /api/courses/my — courses the current user is enrolled in.
+// GET /api/courses/my  courses the current user is enrolled in.
 export async function listMyCourses(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const enrollments = await Enrollment.find({ user: req.dbUser._id }).populate({
@@ -82,13 +82,13 @@ export async function listMyCourses(req: AuthedRequest, res: Response) {
   res.json({ enrollments });
 }
 
-// GET /api/courses/:id — full detail including module/lesson/project structure.
+// GET /api/courses/:id  full detail including module/lesson/project structure.
 export async function getCourse(req: AuthedRequest, res: Response) {
   const course = await Course.findById(req.params.id).populate("category");
   if (!course) return res.status(404).json({ error: "Course not found" });
 
   const modules = await Module.find({ course: course._id }).sort({ order: 1 });
-  // isPublished: true here matters beyond just hiding drafts — it's what
+  // isPublished: true here matters beyond just hiding drafts  it's what
   // keeps this endpoint's lesson set (and therefore its inline project-lock
   // calculation below) consistent with services/moduleAccess.ts's
   // isModuleComplete and lessonController.ts's recalculateCourseProgress,
@@ -121,7 +121,7 @@ export async function getCourse(req: AuthedRequest, res: Response) {
   const structure = modules.map((mod) => {
     const moduleLessons = lessons.filter((l) => l.module.equals(mod._id));
     const project = projects.find((p) => p.module.equals(mod._id)) ?? null;
-    // Locked until every lesson in this module is completed — mirrors
+    // Locked until every lesson in this module is completed  mirrors
     // services/moduleAccess.ts (which submitProject actually enforces),
     // just computed inline here since the lesson/progress data is already
     // in hand for the whole course.
@@ -136,7 +136,7 @@ export async function getCourse(req: AuthedRequest, res: Response) {
   });
 
   // Module/lesson titles stay visible either way (matches the course
-  // detail screen showing the outline before purchase) — only the actual
+  // detail screen showing the outline before purchase)  only the actual
   // reading material is sensitive enough to strip server-side rather than
   // just hide behind a lock icon client-side. hasMaterial is sent either
   // way so the client can still render a locked "Course Material" card
@@ -153,7 +153,7 @@ export async function getCourse(req: AuthedRequest, res: Response) {
   res.json({ course: courseJson, structure, enrollment, isSaved });
 }
 
-// PUT /api/courses/:id/save — toggles the course in the user's saved list
+// PUT /api/courses/:id/save  toggles the course in the user's saved list
 // (the bookmark button on the course detail screen).
 export async function toggleSaveCourse(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
@@ -171,7 +171,7 @@ export async function toggleSaveCourse(req: AuthedRequest, res: Response) {
   res.json({ isSaved: !alreadySaved });
 }
 
-// POST /api/courses/:id/enroll — free courses only; a premium course must
+// POST /api/courses/:id/enroll  free courses only; a premium course must
 // go through purchaseCourse instead, which is what actually flips isPaid.
 export async function enrollInCourse(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
@@ -184,7 +184,7 @@ export async function enrollInCourse(req: AuthedRequest, res: Response) {
   }
 
   if (course.isPremium && course.priceCredits > 0) {
-    return res.status(402).json({ error: "This is a premium course — purchase it with credits first.", priceCredits: course.priceCredits });
+    return res.status(402).json({ error: "This is a premium course  purchase it with credits first.", priceCredits: course.priceCredits });
   }
 
   const enrollment = await Enrollment.create({
@@ -201,7 +201,7 @@ export async function enrollInCourse(req: AuthedRequest, res: Response) {
   res.status(201).json({ enrollment });
 }
 
-// POST /api/courses/:id/purchase — spends credits to unlock a premium
+// POST /api/courses/:id/purchase  spends credits to unlock a premium
 // course. Creates the enrollment if one doesn't exist yet, or flips
 // isPaid on an existing (free-preview) one.
 export async function purchaseCourse(req: AuthedRequest, res: Response) {

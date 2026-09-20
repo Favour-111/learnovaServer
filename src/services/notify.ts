@@ -5,14 +5,14 @@ import { emitUserUpdate } from "./realtime";
 import { sendPushToUsers } from "./push";
 
 // The single choke point every notification-producing code path should go
-// through — same role for notifications that awardXpAndCredits
+// through  same role for notifications that awardXpAndCredits
 // (services/gamification.ts) plays for XP/credits. Keeps "create the
 // in-app record", "wake up anyone with the app open right now", and "push
 // it to their device" from drifting apart across call sites.
 
 // Maps each notification type to the settings-sheet toggle that governs it.
 // A type with no entry here (currently just "announcement") is always
-// delivered — platform-wide announcements aren't user-optional, same as
+// delivered  platform-wide announcements aren't user-optional, same as
 // most apps treat account/service notices as non-negotiable.
 const TYPE_TO_PREFERENCE: Partial<Record<NotificationType, keyof INotificationPreferences>> = {
   lesson_complete: "learningReminders",
@@ -33,7 +33,7 @@ const TYPE_TO_PREFERENCE: Partial<Record<NotificationType, keyof INotificationPr
 };
 
 // A user who predates the settings sheet has no notificationPreferences
-// object at all — that must resolve to "everything on" (opt-out model), not
+// object at all  that must resolve to "everything on" (opt-out model), not
 // silently go quiet for people who never touched the setting.
 function isTypeAllowed(prefs: INotificationPreferences | undefined, type: NotificationType): boolean {
   const key = TYPE_TO_PREFERENCE[type];
@@ -55,14 +55,14 @@ export async function notifyUser(
 
   await Notification.create({ user: userId, type, title, body, data });
   emitUserUpdate(String(userId), type);
-  // Not awaited by design — see sendPushToUsers.
+  // Not awaited by design  see sendPushToUsers.
   sendPushToUsers([{ _id: user._id, pushTokens: user.pushTokens }], { title, body, data }).catch((err) =>
     // eslint-disable-next-line no-console
     console.error("[notify] push send failed", err)
   );
 }
 
-// Fan-out case (new course, new lesson, announcement) — one Notification
+// Fan-out case (new course, new lesson, announcement)  one Notification
 // document per opted-in recipient via a single insertMany, then pushes
 // dispatched in the background so a large fan-out never blocks the admin
 // request that triggered it.

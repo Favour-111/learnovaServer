@@ -1,5 +1,5 @@
 // One-off dev seed: the "JavaScript Fundamentals" course exists in the DB
-// (title/stats/rating) but had zero real Module/Lesson/Project documents —
+// (title/stats/rating) but had zero real Module/Lesson/Project documents 
 // its moduleCount/lessonCount/projectCount were just numbers typed in by
 // hand, disconnected from any real structure. This seeds the real thing so
 // the course detail page's "Course content" accordion has genuine,
@@ -15,7 +15,7 @@ import { Project } from "../models/Project";
 
 // A single real, freely embeddable YouTube video (freeCodeCamp's full JS
 // course) used both as the course preview/trailer and as the placeholder
-// video for every lesson — good enough for a working demo without needing
+// video for every lesson  good enough for a working demo without needing
 // 28 individually-curated videos.
 const VIDEO_ID = "PkZNo7MFNFg";
 const PDF_URL = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf";
@@ -74,8 +74,8 @@ const MODULES: { title: string; lessons: { title: string; minutes: number }[] }[
     title: "Mini Projects & Wrap-up",
     lessons: [
       { title: "Planning Your Mini Project", minutes: 6 },
-      { title: "Building the Project — Part 1", minutes: 15 },
-      { title: "Building the Project — Part 2", minutes: 15 },
+      { title: "Building the Project  Part 1", minutes: 15 },
+      { title: "Building the Project  Part 2", minutes: 15 },
       { title: "Debugging & Polishing", minutes: 9 },
     ],
   },
@@ -85,7 +85,7 @@ async function main() {
   await connectDB();
 
   const course = await Course.findOne({ slug: "javascript-fundamentals" });
-  if (!course) throw new Error("javascript-fundamentals course not found — run the base seed first");
+  if (!course) throw new Error("javascript-fundamentals course not found  run the base seed first");
 
   course.previewVideoId = VIDEO_ID;
   course.pdfUrl = PDF_URL;

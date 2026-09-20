@@ -1,6 +1,6 @@
 // A small static taxonomy used to turn a learner's accumulated skills into
 // illustrative career matches. Intentionally simple (skill-overlap scoring)
-// rather than a GPT call on every profile view — swap in an AI-driven
+// rather than a GPT call on every profile view  swap in an AI-driven
 // version later via services/openai.ts once an admin-configurable prompt
 // exists for it.
 

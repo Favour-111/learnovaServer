@@ -1,6 +1,6 @@
 import { ILesson, IVideo } from "../models/Lesson";
 
-// The single place that decides what a lesson's video actually is —
+// The single place that decides what a lesson's video actually is 
 // everything else (course structure responses, the playback-url endpoint,
 // the student app) reads through this instead of touching `video` or
 // `videoProvider`/`videoId` directly, so a lesson written before the Dual

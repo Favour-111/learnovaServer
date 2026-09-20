@@ -13,13 +13,13 @@ import { IUser } from "../models/User";
 import { AuthedRequest } from "../middleware/auth";
 import { awardXpAndCredits } from "../services/gamification";
 import { issueCertificate } from "../services/certificates";
-import { evaluateAchievements, recordDailyActivity, UnlockedAchievement } from "../services/achievements";
+import { evaluateAchievements, recordDailyActivity, todayStr, UnlockedAchievement } from "../services/achievements";
 import { XP_RULES } from "../config/gamification";
 import { normalizeLessonVideo } from "../services/video";
 import { emitUserUpdate } from "../services/realtime";
 
 // The course's module/lesson ordering, flattened into the single sequence
-// a learner actually moves through — Lesson.order is only unique *within*
+// a learner actually moves through  Lesson.order is only unique *within*
 // its module, so getting a correct global sequence (for prev/next nav and
 // the "Lesson 03" breadcrumb) means joining through Module.order too.
 async function getFlattenedLessons(courseId: unknown) {
@@ -53,11 +53,11 @@ export async function getLesson(req: AuthedRequest, res: Response) {
   }
 
   // A premium course's videos are only ever sent to the client once
-  // purchased — mirrors how quiz answers are stripped server-side rather
+  // purchased  mirrors how quiz answers are stripped server-side rather
   // than just hidden behind a UI lock.
   const locked = !!course?.isPremium && !enrollment?.isPaid;
 
-  // Quizzes attach to a Module, not a Lesson — resolved here so the mobile
+  // Quizzes attach to a Module, not a Lesson  resolved here so the mobile
   // lesson screen can show a "Take Quiz" button without a separate request.
   // Only surfaced on the last lesson of the module, so the button appears
   // once per module rather than on every lesson in it.
@@ -89,7 +89,7 @@ export async function getLesson(req: AuthedRequest, res: Response) {
 
 async function recalculateCourseProgress(userId: string, courseId: string) {
   // Scoped to the lessons that are CURRENTLY published, not just any
-  // LessonProgress row that happens to carry this course id — a lesson
+  // LessonProgress row that happens to carry this course id  a lesson
   // deleted or unpublished after being completed used to stay counted in
   // the numerator while dropping out of the denominator, which is how
   // progress could read e.g. 113%.
@@ -119,13 +119,13 @@ async function recalculateCourseProgress(userId: string, courseId: string) {
   emitUserUpdate(userId, "course_progress");
 
   // Distinguishes "just crossed 100%" from "recalculated while already at
-  // 100%" (e.g. rewatching a completed lesson) — course-completion rewards
+  // 100%" (e.g. rewatching a completed lesson)  course-completion rewards
   // and the certificate must only ever fire on the actual transition.
   return { progressPercent, isCourseComplete, isNewlyCompleted: isCourseComplete && !wasAlreadyComplete, enrollment };
 }
 
 // Shared by the manual "Mark Complete" button and by auto-completion once
-// watch progress crosses ~90% — one place grants XP/credits/certificate/
+// watch progress crosses ~90%  one place grants XP/credits/certificate/
 // achievements so the two entry points can't drift out of sync.
 async function grantLessonCompletion(
   dbUser: HydratedDocument<IUser>,
@@ -134,6 +134,10 @@ async function grantLessonCompletion(
 ) {
   let reward = null;
   const achievementsUnlocked: UnlockedAchievement[] = [];
+  // Populated only when this call is the one that touched the streak (i.e.
+  // it's this lesson's first-ever completion)  stays null on a replay of
+  // an already-completed lesson, same as `reward`.
+  let streak: { streakDays: number; increased: boolean } | null = null;
 
   if (!progress.xpAwarded) {
     progress.isCompleted = true;
@@ -143,18 +147,18 @@ async function grantLessonCompletion(
 
     reward = await awardXpAndCredits(dbUser._id, lesson.xpReward || XP_RULES.lesson, lesson.creditReward, "lesson", "lesson", lesson._id);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayStr(dbUser.timezone);
     const dailyGoal = await DailyGoal.findOneAndUpdate(
       { user: dbUser._id, date: today },
-      { $inc: { completedLessons: 1 }, $setOnInsert: { targetLessons: 4 } },
+      { $inc: { completedLessons: 1 }, $setOnInsert: { targetLessons: dbUser.dailyGoalTarget ?? 4 } },
       { upsert: true, new: true }
     );
 
     // Only the day's FIRST completed lesson can have created this doc /
-    // pushed its counter to exactly 1 — everything after that on the same
+    // pushed its counter to exactly 1  everything after that on the same
     // day must not touch the streak again.
     if (dailyGoal.completedLessons === 1) {
-      await recordDailyActivity(dbUser._id);
+      streak = await recordDailyActivity(dbUser._id);
     }
 
     achievementsUnlocked.push(...(await evaluateAchievements(dbUser._id, { type: "LESSON_COMPLETED" })));
@@ -187,13 +191,13 @@ async function grantLessonCompletion(
       achievementsUnlocked.push(...(await evaluateAchievements(dbUser._id, { type: "CERTIFICATE_EARNED" })));
     }
 
-    return { reward, progressPercent, isCourseComplete, courseCompletionReward, certificate, achievementsUnlocked };
+    return { reward, progressPercent, isCourseComplete, courseCompletionReward, certificate, achievementsUnlocked, streak };
   }
 
-  return { reward, progressPercent, isCourseComplete, courseCompletionReward: null, certificate: null, achievementsUnlocked };
+  return { reward, progressPercent, isCourseComplete, courseCompletionReward: null, certificate: null, achievementsUnlocked, streak };
 }
 
-// PUT /api/lessons/:id/complete — marks a lesson complete and grants XP
+// PUT /api/lessons/:id/complete  marks a lesson complete and grants XP
 // exactly once per user+lesson (LessonProgress has a unique index on
 // user+lesson, and xpAwarded gates the reward so replays are a no-op).
 export async function completeLesson(req: AuthedRequest, res: Response) {
@@ -211,9 +215,15 @@ export async function completeLesson(req: AuthedRequest, res: Response) {
   res.json({ progress, ...result });
 }
 
-// PUT /api/lessons/:id/progress — periodic video watch-progress save (the
+// PUT /api/lessons/:id/progress  periodic video watch-progress save (the
 // player calls this every ~10-15s, not every second). Crossing ~90% watched
-// auto-completes the lesson through the same path as the manual button.
+// auto-completes the lesson through the same path as the manual button 
+// but only once *today's* fresh watching accounts for a meaningful chunk of
+// that 90%. Without this, resuming a lesson left at, say, 88% on a previous
+// day would auto-complete (and grant XP/credits/streak) off a single ~12s
+// tick moments after pressing play, which reads as "the streak counted
+// immediately just from opening the video." The explicit "Mark Complete"
+// button (completeLesson above) is unaffected  that stays instant always.
 export async function updateLessonProgress(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const { watchedSeconds, durationSeconds } = req.body as { watchedSeconds?: unknown; durationSeconds?: unknown };
@@ -225,20 +235,38 @@ export async function updateLessonProgress(req: AuthedRequest, res: Response) {
   if (!lesson) return res.status(404).json({ error: "Lesson not found" });
 
   const clampedPosition = Math.max(0, Math.min(watchedSeconds, durationSeconds));
+  const today = todayStr(req.dbUser.timezone);
+
+  const existing = await LessonProgress.findOne({ user: req.dbUser._id, lesson: lesson._id });
+  const priorWatchedSeconds = existing?.watchedSeconds ?? 0;
+  const newWatchedSeconds = Math.max(priorWatchedSeconds, clampedPosition);
+
+  // Fix the checkpoint at the start of today's first update and leave it
+  // alone for the rest of the day, so fresh-today watch time accumulates
+  // correctly across every subsequent tick instead of resetting each time.
+  const isNewCheckpointDay = existing?.watchDayCheckpointDate !== today;
+  const checkpointSeconds = isNewCheckpointDay ? priorWatchedSeconds : (existing?.watchDayCheckpointSeconds ?? 0);
 
   const progress = await LessonProgress.findOneAndUpdate(
     { user: req.dbUser._id, lesson: lesson._id },
     {
-      $set: { lastPositionSeconds: clampedPosition, durationSeconds },
-      $max: { watchedSeconds: clampedPosition },
+      $set: {
+        lastPositionSeconds: clampedPosition,
+        durationSeconds,
+        watchedSeconds: newWatchedSeconds,
+        watchDayCheckpointDate: today,
+        watchDayCheckpointSeconds: checkpointSeconds,
+      },
       $setOnInsert: { user: req.dbUser._id, lesson: lesson._id, course: lesson.course },
     },
     { upsert: true, new: true }
   );
 
   const percentage = Math.min(100, Math.round((progress.watchedSeconds / durationSeconds) * 100));
+  const watchedFreshToday = newWatchedSeconds - checkpointSeconds;
+  const minFreshSecondsRequired = Math.min(60, durationSeconds * 0.3);
 
-  if (percentage >= 90 && !progress.xpAwarded) {
+  if (percentage >= 90 && !progress.xpAwarded && watchedFreshToday >= minFreshSecondsRequired) {
     const result = await grantLessonCompletion(req.dbUser, lesson, progress);
     return res.json({ progress, percentage, ...result });
   }
@@ -251,6 +279,7 @@ export async function updateLessonProgress(req: AuthedRequest, res: Response) {
     isCourseComplete: false,
     courseCompletionReward: null,
     achievementsUnlocked: [],
+    streak: null,
   });
 }
 

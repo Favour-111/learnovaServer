@@ -1,6 +1,6 @@
 import { Schema, model, Types } from "mongoose";
 
-// The granular evaluation lifecycle a client can poll — status stays the
+// The granular evaluation lifecycle a client can poll  status stays the
 // coarse queued/processing/evaluated/failed summary (used for filtering/
 // indexing), stage is the fine-grained "what's happening right now" the
 // mobile "Evaluating your project…" screen renders.
@@ -25,17 +25,17 @@ export interface IProjectSubmission {
   status: "queued" | "processing" | "evaluated" | "failed";
   stage: EvaluationStage;
   stageError?: string;
-  // The exact repository state that was evaluated — a later push to the
+  // The exact repository state that was evaluated  a later push to the
   // same repo must never make an old score look like it represents new code.
   branch?: string;
   commitSha?: string;
   evaluatedAt?: Date;
   // Non-accusatory integrity signals for admin review (see services/
-  // projectAutomatedChecks.ts) — never auto-rejects a submission on its own.
+  // projectAutomatedChecks.ts)  never auto-rejects a submission on its own.
   integrityFlags: string[];
   currentAttempt: Types.ObjectId | null;
   // Achievements unlocked by THIS evaluation specifically (evaluateAchievements
-  // returns [] on a re-check that unlocked nothing new) — stashed here so the
+  // returns [] on a re-check that unlocked nothing new)  stashed here so the
   // mobile client, which learns the result via polling rather than an inline
   // mutation response, can still show the unlock-celebration modal exactly
   // once per real unlock.

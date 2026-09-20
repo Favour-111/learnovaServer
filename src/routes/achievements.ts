@@ -10,7 +10,7 @@ import { withAuth, attachDbUserOptional, attachDbUser } from "../middleware/auth
 
 const router = Router();
 
-// Order matters — /me and /me/completed must resolve before the generic
+// Order matters  /me and /me/completed must resolve before the generic
 // /:id route below, or "me" would be parsed as an achievement id.
 router.get("/me/completed", withAuth, attachDbUser, listMyCompletedAchievements);
 router.post("/me/recalculate", withAuth, attachDbUser, recalculateMyAchievements);

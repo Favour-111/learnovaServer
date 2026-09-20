@@ -1,6 +1,6 @@
 // One-off dev seed: populates this week's leaderboard with a few dummy
 // competitor accounts plus the real demo user, so the Home screen's
-// "Weekly Leaderboard" card has something to show. Safe to re-run — dummy
+// "Weekly Leaderboard" card has something to show. Safe to re-run  dummy
 // users are upserted by email, and re-running just adds another XP
 // transaction on top (bumping everyone's weekly total, ranking stays the
 // same shape).
@@ -14,7 +14,7 @@ import { recomputeCurrentLeaderboard } from "../services/leaderboard";
 
 const DEMO_USER_EMAIL = "omojolaobaloluwa@gmail.com";
 
-// [name, email, weekly XP amount] — ranked by amount, descending.
+// [name, email, weekly XP amount]  ranked by amount, descending.
 const ENTRIES: Array<{ name: string; email?: string; amount: number; isDemoUser?: boolean }> = [
   { name: "Alex Rivera", email: "alex.rivera@learnova-demo.test", amount: 2200 },
   { name: "Priya Sharma", email: "priya.sharma@learnova-demo.test", amount: 1850 },
@@ -29,7 +29,7 @@ async function main() {
   const demoUser = await User.findOne({ email: DEMO_USER_EMAIL });
   if (!demoUser) {
     // eslint-disable-next-line no-console
-    console.warn(`[seed:leaderboard] No user found with email ${DEMO_USER_EMAIL} — sign in with that account once first.`);
+    console.warn(`[seed:leaderboard] No user found with email ${DEMO_USER_EMAIL}  sign in with that account once first.`);
   }
 
   for (const entry of ENTRIES) {
@@ -42,7 +42,7 @@ async function main() {
         {
           email: entry.email,
           name: entry.name,
-          // Fake, stable, never-real clerkId — this account can never sign
+          // Fake, stable, never-real clerkId  this account can never sign
           // in for real, so it can't collide with an actual Clerk webhook.
           clerkId: `demo_${entry.email}`,
           $setOnInsert: { role: "user", xp: 0, credits: 0, streakDays: 0 },

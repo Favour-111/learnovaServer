@@ -48,7 +48,7 @@ const xpTransactionSchema = new Schema<IXPTransaction>(
 // Powers the per-user "XP history" list (find by user, sorted newest first).
 xpTransactionSchema.index({ user: 1, createdAt: -1 });
 // Powers recomputeCurrentLeaderboard()'s weekly aggregation, which $matches
-// createdAt across ALL users' transactions — without this it's a full
+// createdAt across ALL users' transactions  without this it's a full
 // collection scan on every leaderboard read, and that only gets worse as
 // transaction history accumulates over time.
 xpTransactionSchema.index({ createdAt: 1 });

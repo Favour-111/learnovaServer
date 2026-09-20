@@ -3,14 +3,15 @@ import { Webhook } from "svix";
 import { env } from "../config/env";
 import { User, INotificationPreferences } from "../models/User";
 import { AuthedRequest } from "../middleware/auth";
-import { getStreakStatus } from "../services/achievements";
+import { getStreakState } from "../services/streak";
+import { isValidTimeZone } from "../services/streakTime";
 
 // Clerk webhook: keeps our Mongo User in sync with Clerk (source of truth
 // for identity/credentials). Fired on user.created / user.updated / user.deleted.
 export async function handleClerkWebhook(req: Request, res: Response, next: NextFunction) {
   try {
     // Captured by the `verify` callback on the global express.json()
-    // parser in app.ts — svix needs the exact raw bytes to check the
+    // parser in app.ts  svix needs the exact raw bytes to check the
     // signature, not the re-serialized parsed object.
     const payload = (req as Request & { rawBody: Buffer }).rawBody;
     const headers = {
@@ -44,24 +45,39 @@ export async function handleClerkWebhook(req: Request, res: Response, next: Next
   }
 }
 
-// GET /api/auth/me — returns (and lazily provisions) the current user's profile.
+// GET /api/auth/me  returns (and lazily provisions) the current user's
+// profile. Also the app's main "trusted clock" hydration point: serverTime
+// lets the client correct for its own clock/timezone tampering (see
+// learnovaApp/src/hooks/useStreakBoundary.ts)  nothing streak-related on
+// the frontend should ever schedule off `new Date()` alone.
 export async function getMe(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const { streakAtRisk } = getStreakStatus(req.dbUser.streakDays, req.dbUser.lastStreakDate);
-  res.json({ user: { ...req.dbUser.toObject(), streakAtRisk } });
+  const streak = getStreakState(req.dbUser.streakDays, req.dbUser.lastStreakDate, req.dbUser.timezone);
+  res.json({
+    user: {
+      ...req.dbUser.toObject(),
+      streakDays: streak.streakDays,
+      streakAtRisk: streak.streakAtRisk,
+      streakState: streak.state,
+      streakPreviousDays: streak.previousStreakDays,
+      streakNextBoundaryAt: streak.nextBoundaryAt,
+    },
+    serverTime: new Date().toISOString(),
+  });
 }
 
-// PUT /api/auth/me/profile — name/email edits from the app's Edit Profile
+// PUT /api/auth/me/profile  name/email edits from the app's Edit Profile
 // screen. Clerk stays the source of truth (the frontend applies the same
 // change there first, via its own SDK), this just keeps our Mongo copy in
 // step immediately rather than waiting on the next user.updated webhook.
 export async function updateProfile(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const { name, email, reducedMotion, dailyGoalTarget } = req.body as {
+  const { name, email, reducedMotion, dailyGoalTarget, timezone } = req.body as {
     name?: string;
     email?: string;
     reducedMotion?: boolean;
     dailyGoalTarget?: number;
+    timezone?: string;
   };
   if (typeof name === "string" && name.trim()) req.dbUser.name = name.trim();
   if (typeof email === "string" && email.trim()) req.dbUser.email = email.trim();
@@ -69,11 +85,17 @@ export async function updateProfile(req: AuthedRequest, res: Response) {
   if (typeof dailyGoalTarget === "number" && Number.isFinite(dailyGoalTarget)) {
     req.dbUser.dailyGoalTarget = Math.min(10, Math.max(1, Math.round(dailyGoalTarget)));
   }
+  if (typeof timezone === "string" && timezone.trim()) {
+    if (!isValidTimeZone(timezone.trim())) {
+      return res.status(400).json({ error: "Invalid timezone" });
+    }
+    req.dbUser.timezone = timezone.trim();
+  }
   await req.dbUser.save();
   res.json({ user: req.dbUser });
 }
 
-// PUT /api/auth/me/interests — optional interest selection from onboarding.
+// PUT /api/auth/me/interests  optional interest selection from onboarding.
 export async function setInterests(req: AuthedRequest, res: Response) {
   const { interests } = req.body as { interests: string[] };
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
@@ -91,7 +113,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: INotificationPreferences = {
   communityActivity: true,
 };
 
-// PUT /api/auth/me/notification-preferences — the Notifications screen's
+// PUT /api/auth/me/notification-preferences  the Notifications screen's
 // settings sheet. Merges onto whatever the user already had (or the
 // all-true defaults, for a user who predates this field) rather than
 // requiring the full object every time.

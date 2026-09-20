@@ -25,7 +25,7 @@ export async function markAllNotificationsRead(req: AuthedRequest, res: Response
   res.status(204).send();
 }
 
-// DELETE /api/notifications/:id — swipe-to-delete on the Notifications screen.
+// DELETE /api/notifications/:id  swipe-to-delete on the Notifications screen.
 export async function deleteNotification(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const notification = await Notification.findOneAndDelete({ _id: req.params.id, user: req.dbUser._id });
@@ -33,7 +33,7 @@ export async function deleteNotification(req: AuthedRequest, res: Response) {
   res.status(204).send();
 }
 
-// POST /api/notifications/register-token — stores an FCM device token.
+// POST /api/notifications/register-token  stores an FCM device token.
 export async function registerPushToken(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const { token } = req.body as { token: string };

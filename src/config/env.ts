@@ -26,7 +26,7 @@ export const env = {
   openaiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
   openaiBaseUrl: process.env.OPENAI_BASE_URL || undefined,
 
-  // Optional — unauthenticated GitHub API access works fine for public
+  // Optional  unauthenticated GitHub API access works fine for public
   // repos (60 req/hr), a personal access token just raises that to
   // 5000/hr and is the same client a later private-repo/OAuth flow would use.
   githubToken: process.env.GITHUB_TOKEN ?? "",
@@ -41,7 +41,7 @@ export const env = {
   adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? "change-me-in-production",
 
   // Uploaded-video pipeline (S3 -> MediaConvert -> CloudFront). All optional
-  // at boot — services/aws.ts throws a clear error only when a call actually
+  // at boot  services/aws.ts throws a clear error only when a call actually
   // needs a value that's missing, so the rest of the app (YouTube lessons
   // included) works fine before this is configured.
   aws: {
@@ -51,7 +51,7 @@ export const env = {
     s3Bucket: process.env.AWS_S3_BUCKET ?? "",
     mediaConvertEndpoint: process.env.AWS_MEDIACONVERT_ENDPOINT ?? "",
     mediaConvertRoleArn: process.env.AWS_MEDIACONVERT_ROLE_ARN ?? "",
-    // Shared secret this server checks on the MediaConvert status webhook —
+    // Shared secret this server checks on the MediaConvert status webhook 
     // set the same value as a custom header in the EventBridge API
     // destination's connection (Configure -> Authorization -> API key).
     mediaConvertWebhookSecret: process.env.AWS_MEDIACONVERT_WEBHOOK_SECRET ?? "",

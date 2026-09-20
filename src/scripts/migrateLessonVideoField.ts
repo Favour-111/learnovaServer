@@ -1,8 +1,8 @@
 // One-off migration: backfills the new `video` field on lessons created
 // before the Dual Video Source feature, which only ever had
-// `videoProvider`/`videoId`. Not required for correctness — every read path
+// `videoProvider`/`videoId`. Not required for correctness  every read path
 // already falls back to those fields via services/video.ts's
-// normalizeLessonVideo() — but this keeps the data itself consistent going
+// normalizeLessonVideo()  but this keeps the data itself consistent going
 // forward (e.g. so a future admin query can filter on `video.type`
 // directly). Safe to re-run: only touches lessons where `video` is unset.
 import mongoose from "mongoose";

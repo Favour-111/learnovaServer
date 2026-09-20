@@ -4,7 +4,7 @@ import { UserAchievement } from "../models/UserAchievement";
 import { AuthedRequest } from "../middleware/auth";
 import { recalculateUserAchievements } from "../services/achievements";
 
-// Shared by GET /achievements, /achievements/me, /achievements/me/completed —
+// Shared by GET /achievements, /achievements/me, /achievements/me/completed 
 // every active achievement definition merged with this user's live progress.
 // Nothing here is hardcoded: name/description/icon/category/requirement/
 // reward all come straight from the Achievement document, which the admin
@@ -41,7 +41,7 @@ async function buildAchievementList(userId?: string) {
   });
 }
 
-// GET /api/achievements — public-ish listing (progress merged in only when
+// GET /api/achievements  public-ish listing (progress merged in only when
 // signed in); mirrors /me so either can be used as the main fetch.
 export async function listAchievements(req: AuthedRequest, res: Response) {
   const achievements = await buildAchievementList(req.dbUser ? String(req.dbUser._id) : undefined);
@@ -62,7 +62,7 @@ export async function listMyCompletedAchievements(req: AuthedRequest, res: Respo
   res.json({ achievements });
 }
 
-// GET /api/achievements/:id — single achievement definition + this user's progress.
+// GET /api/achievements/:id  single achievement definition + this user's progress.
 export async function getAchievement(req: AuthedRequest, res: Response) {
   const achievement = await Achievement.findById(req.params.id);
   if (!achievement || !achievement.active) return res.status(404).json({ error: "Achievement not found" });
@@ -89,10 +89,10 @@ export async function getAchievement(req: AuthedRequest, res: Response) {
   });
 }
 
-// POST /api/achievements/me/recalculate — re-evaluates every active
+// POST /api/achievements/me/recalculate  re-evaluates every active
 // achievement against this user's real current state. Exposed to the
 // signed-in user themselves (not just admin) since it's a safe, idempotent
-// read-and-catch-up operation — useful right after an achievement's
+// read-and-catch-up operation  useful right after an achievement's
 // requirement changes, or if a client suspects it missed an unlock.
 export async function recalculateMyAchievements(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });

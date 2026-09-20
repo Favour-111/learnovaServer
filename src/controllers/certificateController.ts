@@ -17,10 +17,10 @@ export async function getCertificate(req: AuthedRequest, res: Response) {
 // STUB: streams a generated PDF. Wire up a PDF library (e.g. pdfkit) using
 // the certificate fields + qrCodeUrl once the visual template is designed.
 export async function downloadCertificate(req: AuthedRequest, res: Response) {
-  res.status(501).json({ error: "PDF generation not yet implemented — see services/certificates.ts" });
+  res.status(501).json({ error: "PDF generation not yet implemented  see services/certificates.ts" });
 }
 
-// Public — no auth required, used by the QR code / admin verify page.
+// Public  no auth required, used by the QR code / admin verify page.
 export async function verifyCertificate(req: AuthedRequest, res: Response) {
   const certificate = await Certificate.findOne({ certificateId: req.params.certificateId });
   if (!certificate) {

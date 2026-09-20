@@ -17,7 +17,7 @@ interface AwardResult {
 
 // The single choke point for every XP/Credit grant in the system. Anything
 // that rewards the user must go through here so balances, transaction
-// history, and level-up detection stay consistent — never mutate
+// history, and level-up detection stay consistent  never mutate
 // user.xp / user.credits directly anywhere else.
 export async function awardXpAndCredits(
   userId: Types.ObjectId,
@@ -78,7 +78,7 @@ export async function awardXpAndCredits(
       user: userId,
       type: "level_up",
       title: "Level up!",
-      body: `You reached Level ${newLevelInfo.level} — ${newLevelInfo.title}.`,
+      body: `You reached Level ${newLevelInfo.level}  ${newLevelInfo.title}.`,
       data: { level: newLevelInfo.level },
     });
   }

@@ -23,7 +23,7 @@ const QUIZ_ID = "6a9982dc39fdda87a6358b2d";
       prompt: "CSS stands for Cascading Style Sheets.",
       options: [],
       correctBoolean: true,
-      explanation: "Correct — CSS is used to style HTML elements.",
+      explanation: "Correct  CSS is used to style HTML elements.",
       order: 1,
     },
     {

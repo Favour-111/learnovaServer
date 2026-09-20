@@ -27,7 +27,7 @@ const certificateSchema = new Schema<ICertificate>(
   { timestamps: true }
 );
 
-// One certificate per user per course, ever — re-completing an already
+// One certificate per user per course, ever  re-completing an already
 // completed course (or any other retrigger) must never mint a second one.
 certificateSchema.index({ user: 1, course: 1 }, { unique: true });
 

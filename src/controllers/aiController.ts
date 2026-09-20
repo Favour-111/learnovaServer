@@ -9,7 +9,7 @@ import { AuthedRequest } from "../middleware/auth";
 import { askTutor } from "../services/openai";
 import { matchCareerPaths } from "../config/careerPaths";
 
-// POST /api/ai/tutor — { lessonId, question, history }
+// POST /api/ai/tutor  { lessonId, question, history }
 export async function tutorAsk(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const { lessonId, question, history } = req.body as {
@@ -36,12 +36,12 @@ export async function tutorAsk(req: AuthedRequest, res: Response) {
   res.json({ answer });
 }
 
-// POST /api/ai/evaluate-project — see routes/projects.ts + services/projectEvaluationPipeline.ts
+// POST /api/ai/evaluate-project  see routes/projects.ts + services/projectEvaluationPipeline.ts
 // for the full pipeline; this is invoked internally by projectController.submitProject.
 
-// GET /api/ai/career-recommendation — only offered once the learner has
+// GET /api/ai/career-recommendation  only offered once the learner has
 // meaningful signal: at least one completed course and a couple of passed
-// projects. Never forces a path — purely informational.
+// projects. Never forces a path  purely informational.
 export async function careerRecommendation(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
 
@@ -79,6 +79,6 @@ export async function careerRecommendation(req: AuthedRequest, res: Response) {
     available: true,
     basedOn: { skills, avgProjectScore, avgQuizScore, coursesCompleted: completedCourses.length },
     recommendations,
-    note: "Recommendations are illustrative only — the learner is never required to follow them.",
+    note: "Recommendations are illustrative only  the learner is never required to follow them.",
   });
 }
