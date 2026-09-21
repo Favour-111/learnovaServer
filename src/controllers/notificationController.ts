@@ -33,7 +33,17 @@ export async function deleteNotification(req: AuthedRequest, res: Response) {
   res.status(204).send();
 }
 
-// POST /api/notifications/register-token  stores an FCM device token.
+// DELETE /api/notifications/all  the Notifications screen's trash icon.
+// Scoped to req.dbUser._id exactly like every other handler here, never a
+// client-supplied id, so this can only ever clear the caller's own
+// notifications.
+export async function deleteAllNotifications(req: AuthedRequest, res: Response) {
+  if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
+  await Notification.deleteMany({ user: req.dbUser._id });
+  res.status(204).send();
+}
+
+// POST /api/notifications/register-token  stores an Expo push token.
 export async function registerPushToken(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const { token } = req.body as { token: string };
