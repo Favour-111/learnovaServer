@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { Notification, NotificationType } from "../models/Notification";
 import { User, INotificationPreferences } from "../models/User";
 import { emitUserUpdate } from "./realtime";
-import { sendPushToUsers } from "./push";
+import { enqueuePush } from "../jobs/pushNotifications";
 
 // The single choke point every notification-producing code path should go
 // through  same role for notifications that awardXpAndCredits
@@ -55,11 +55,10 @@ export async function notifyUser(
 
   await Notification.create({ user: userId, type, title, body, data });
   emitUserUpdate(String(userId), type);
-  // Not awaited by design  see sendPushToUsers.
-  sendPushToUsers([{ _id: user._id, pushTokens: user.pushTokens }], { title, body, data }).catch((err) =>
-    // eslint-disable-next-line no-console
-    console.error("[notify] push send failed", err)
-  );
+  // Not awaited by design  see enqueuePush (queued when Redis is
+  // configured, otherwise the same in-process fire-and-forget send this
+  // already was).
+  enqueuePush([{ _id: user._id, pushTokens: user.pushTokens }], { title, body, data });
 }
 
 // Fan-out case (new course, new lesson, announcement)  one Notification
@@ -83,11 +82,8 @@ export async function notifyUsers(
 
   recipients.forEach((user) => emitUserUpdate(String(user._id), type));
 
-  sendPushToUsers(
+  enqueuePush(
     recipients.map((r) => ({ _id: r._id, pushTokens: r.pushTokens })),
     { title, body, data }
-  ).catch((err) =>
-    // eslint-disable-next-line no-console
-    console.error("[notify] bulk push send failed", err)
   );
 }

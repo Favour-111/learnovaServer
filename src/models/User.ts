@@ -14,6 +14,14 @@ export interface IUser {
   email: string;
   name: string;
   avatarUrl?: string;
+  // Seed for the user's chosen DiceBear avatar (e.g. "learnova-07"), from
+  // the approved list in services/avatars.ts  never a full URL or an
+  // arbitrary seed (see isValidAvatarSeed). Once set, this is the profile
+  // image shown everywhere in the app, taking priority over avatarUrl
+  // (Clerk's synced photo). Undefined until the user completes the
+  // mandatory avatar-selection onboarding step (or for an account that
+  // predates this feature, until they're routed through it on next login).
+  avatarSeed?: string;
   role: "user" | "admin";
   interests: string[];
   level: number;
@@ -54,6 +62,7 @@ const userSchema = new Schema<IUser>(
     email: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     avatarUrl: String,
+    avatarSeed: String,
     role: { type: String, enum: ["user", "admin"], default: "user" },
     interests: { type: [String], default: [] },
     level: { type: Number, default: 1 },
@@ -81,6 +90,10 @@ const userSchema = new Schema<IUser>(
   },
   { timestamps: true }
 );
+
+// Powers the leaderboard's unranked-user query and admin role management,
+// both of which filter on role.
+userSchema.index({ role: 1 });
 
 export type UserId = Types.ObjectId;
 export const User = model<IUser>("User", userSchema);

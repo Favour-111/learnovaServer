@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { Types } from "mongoose";
 import { Project } from "../models/Project";
+import { Module } from "../models/Module";
 import { ProjectSubmission, EvaluationStage } from "../models/ProjectSubmission";
 import { ProjectAttempt } from "../models/ProjectAttempt";
 import { AIEvaluation } from "../models/AIEvaluation";
@@ -13,7 +14,7 @@ import { runProjectEvaluation, EvaluationError } from "../services/projectEvalua
 import { parseGithubUrl, fetchRepoMeta, fetchLatestCommit } from "../services/github";
 
 export async function getProject(req: AuthedRequest, res: Response) {
-  const project = await Project.findById(req.params.id);
+  const project = await Project.findById(req.params.id).lean();
   if (!project) return res.status(404).json({ error: "Project not found" });
 
   let attempts: unknown[] = [];
@@ -21,14 +22,17 @@ export async function getProject(req: AuthedRequest, res: Response) {
   // is locked rather than assuming access.
   let isLocked = true;
   if (req.dbUser) {
-    attempts = await ProjectAttempt.find({ user: req.dbUser._id, project: project._id }).sort({ attemptNumber: 1 }).populate("evaluation");
-    // Computed BEFORE the populate below  isModuleComplete needs the raw
-    // ObjectId, not the populated module document.
+    attempts = await ProjectAttempt.find({ user: req.dbUser._id, project: project._id }).sort({ attemptNumber: 1 }).populate("evaluation").lean();
+    // project.module is the raw ObjectId here (nothing populated it yet)
+    // isModuleComplete needs exactly that, not a populated module document.
     isLocked = !(await isModuleComplete(req.dbUser._id, project.module));
   }
 
-  await project.populate("module", "title");
-  res.json({ project, attempts, isLocked });
+  // Fetched separately rather than via project.populate(...) (an instance
+  // method that needs a real hydrated Document, not the lean plain object
+  // above) — also cheaper, since it only pulls the one field actually used.
+  const module = await Module.findById(project.module).select("title").lean();
+  res.json({ project: { ...project, module: module ?? project.module }, attempts, isLocked });
 }
 
 // POST /api/projects/:id/validate-github  lets the mobile submission form
@@ -241,6 +245,7 @@ export async function getProjectAttempts(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const attempts = await ProjectAttempt.find({ user: req.dbUser._id, project: req.params.id })
     .sort({ attemptNumber: 1 })
-    .populate("evaluation");
+    .populate("evaluation")
+    .lean();
   res.json({ attempts });
 }

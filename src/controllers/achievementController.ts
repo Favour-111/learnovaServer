@@ -10,11 +10,11 @@ import { recalculateUserAchievements } from "../services/achievements";
 // reward all come straight from the Achievement document, which the admin
 // panel edits directly.
 async function buildAchievementList(userId?: string) {
-  const achievements = await Achievement.find({ active: true }).sort({ createdAt: 1 });
+  const achievements = await Achievement.find({ active: true }).sort({ createdAt: 1 }).lean();
 
-  let progressMap = new Map<string, InstanceType<typeof UserAchievement>>();
+  let progressMap = new Map<string, Record<string, unknown>>();
   if (userId) {
-    const progress = await UserAchievement.find({ user: userId });
+    const progress = await UserAchievement.find({ user: userId }).lean();
     progressMap = new Map(progress.map((p) => [String(p.achievement), p]));
   }
 
@@ -64,10 +64,10 @@ export async function listMyCompletedAchievements(req: AuthedRequest, res: Respo
 
 // GET /api/achievements/:id  single achievement definition + this user's progress.
 export async function getAchievement(req: AuthedRequest, res: Response) {
-  const achievement = await Achievement.findById(req.params.id);
+  const achievement = await Achievement.findById(req.params.id).lean();
   if (!achievement || !achievement.active) return res.status(404).json({ error: "Achievement not found" });
 
-  const progress = req.dbUser ? await UserAchievement.findOne({ user: req.dbUser._id, achievement: achievement._id }) : null;
+  const progress = req.dbUser ? await UserAchievement.findOne({ user: req.dbUser._id, achievement: achievement._id }).lean() : null;
 
   res.json({
     achievement: {

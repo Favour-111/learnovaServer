@@ -100,4 +100,11 @@ const lessonSchema = new Schema<ILesson>(
   { timestamps: true }
 );
 
+// Powers getFlattenedLessons / getCourse / recalculateCourseProgress, which
+// all fetch a course's published lessons in display order  the single-field
+// `course` index above only helps the equality filter, not the isPublished
+// filter + order sort, so those still fell back to an in-memory sort/scan
+// without this.
+lessonSchema.index({ course: 1, isPublished: 1, order: 1 });
+
 export const Lesson = model<ILesson>("Lesson", lessonSchema);

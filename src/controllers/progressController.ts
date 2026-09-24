@@ -11,25 +11,34 @@ import { getStreakState, todayStr } from "../services/streak";
 import { addDaysToDateStr } from "../services/streakTime";
 
 // GET /api/progress  aggregate stats for the Progress screen.
+//
+// Only counts/averages are ever returned here, never the underlying rows
+// this used to fetch every Enrollment/ProjectAttempt/QuizAttempt document
+// for the user just to .filter()/.reduce() over them in Node. Computing
+// those in MongoDB via countDocuments/aggregate instead means a user with
+// years of history costs the same as one with a handful of rows.
 export async function getProgress(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
   const userId = req.dbUser._id;
 
-  const [enrollments, projectAttempts, quizAttempts, certificateCount, recentAttempts] = await Promise.all([
-    Enrollment.find({ user: userId }),
-    ProjectAttempt.find({ user: userId }),
-    QuizAttempt.find({ user: userId }),
+  const [enrollmentCounts, projectStats, quizStats, certificateCount, recentAttempts] = await Promise.all([
+    Enrollment.aggregate([{ $match: { user: userId } }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+    ProjectAttempt.aggregate([
+      { $match: { user: userId, passed: true } },
+      { $group: { _id: null, count: { $sum: 1 }, avgScore: { $avg: "$score" } } },
+    ]),
+    QuizAttempt.aggregate([{ $match: { user: userId } }, { $group: { _id: null, count: { $sum: 1 }, avgScore: { $avg: "$scorePercent" } } }]),
     Certificate.countDocuments({ user: userId }),
-    ProjectAttempt.find({ user: userId }).sort({ createdAt: -1 }).limit(4).populate("project", "title"),
+    ProjectAttempt.find({ user: userId }).sort({ createdAt: -1 }).limit(4).select("project score").populate("project", "title").lean(),
   ]);
 
-  const passedProjects = projectAttempts.filter((a) => a.passed);
-  const avgProjectScore = passedProjects.length
-    ? Math.round(passedProjects.reduce((sum, a) => sum + a.score, 0) / passedProjects.length)
-    : 0;
-  const avgQuizScore = quizAttempts.length
-    ? Math.round(quizAttempts.reduce((sum, a) => sum + a.scorePercent, 0) / quizAttempts.length)
-    : 0;
+  const totalCourses = enrollmentCounts.reduce((sum, row) => sum + row.count, 0);
+  const completedCourses = enrollmentCounts.find((row) => row._id === "completed")?.count ?? 0;
+  const activeCourses = enrollmentCounts.find((row) => row._id === "active")?.count ?? 0;
+  const projectsCompleted = projectStats[0]?.count ?? 0;
+  const avgProjectScore = projectStats[0] ? Math.round(projectStats[0].avgScore) : 0;
+  const quizzesCompleted = quizStats[0]?.count ?? 0;
+  const avgQuizScore = quizStats[0] ? Math.round(quizStats[0].avgScore) : 0;
 
   const currentLevel = levelForXp(req.dbUser.xp);
   const upcomingLevel = nextLevel(req.dbUser.xp);
@@ -39,13 +48,13 @@ export async function getProgress(req: AuthedRequest, res: Response) {
     totalXp: req.dbUser.xp,
     currentLevel,
     xpToNextLevel: upcomingLevel ? upcomingLevel.xpRequired - req.dbUser.xp : 0,
-    totalCourses: enrollments.length,
-    completedCourses: enrollments.filter((e) => e.status === "completed").length,
-    activeCourses: enrollments.filter((e) => e.status === "active").length,
-    projectsCompleted: passedProjects.length,
+    totalCourses,
+    completedCourses,
+    activeCourses,
+    projectsCompleted,
     averageProjectScore: avgProjectScore,
     quizAverage: avgQuizScore,
-    quizzesCompleted: quizAttempts.length,
+    quizzesCompleted,
     learningStreak: streak.streakDays,
     streakAtRisk: streak.streakAtRisk,
     streakState: streak.state,

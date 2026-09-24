@@ -43,4 +43,9 @@ const notificationSchema = new Schema<INotification>(
 // Powers the Notification Center's list (find by user, sorted newest first).
 notificationSchema.index({ user: 1, createdAt: -1 });
 
+// Powers admin's cross-user notification listing, which sorts newest-first
+// with no user filter  the compound index above doesn't help there since
+// it's keyed on user first.
+notificationSchema.index({ createdAt: -1 });
+
 export const Notification = model<INotification>("Notification", notificationSchema);

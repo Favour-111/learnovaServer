@@ -32,4 +32,8 @@ const quizAttemptSchema = new Schema<IQuizAttempt>(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
+// Powers getQuiz's best-score lookup and submitQuiz's previous-best/
+// already-passed checks, both filtering by this exact user+quiz pair.
+quizAttemptSchema.index({ user: 1, quiz: 1 });
+
 export const QuizAttempt = model<IQuizAttempt>("QuizAttempt", quizAttemptSchema);

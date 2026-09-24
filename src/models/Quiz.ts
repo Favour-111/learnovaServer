@@ -47,4 +47,7 @@ const quizSchema = new Schema<IQuiz>(
   { timestamps: true }
 );
 
+// Powers listQuizzes' isPublished filter.
+quizSchema.index({ isPublished: 1 });
+
 export const Quiz = model<IQuiz>("Quiz", quizSchema);

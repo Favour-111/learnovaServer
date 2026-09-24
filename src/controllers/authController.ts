@@ -5,6 +5,7 @@ import { User, INotificationPreferences } from "../models/User";
 import { AuthedRequest } from "../middleware/auth";
 import { getStreakState } from "../services/streak";
 import { isValidTimeZone } from "../services/streakTime";
+import { isValidAvatarSeed } from "../services/avatars";
 
 // Clerk webhook: keeps our Mongo User in sync with Clerk (source of truth
 // for identity/credentials). Fired on user.created / user.updated / user.deleted.
@@ -72,12 +73,13 @@ export async function getMe(req: AuthedRequest, res: Response) {
 // step immediately rather than waiting on the next user.updated webhook.
 export async function updateProfile(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const { name, email, reducedMotion, dailyGoalTarget, timezone } = req.body as {
+  const { name, email, reducedMotion, dailyGoalTarget, timezone, avatarSeed } = req.body as {
     name?: string;
     email?: string;
     reducedMotion?: boolean;
     dailyGoalTarget?: number;
     timezone?: string;
+    avatarSeed?: string;
   };
   if (typeof name === "string" && name.trim()) req.dbUser.name = name.trim();
   if (typeof email === "string" && email.trim()) req.dbUser.email = email.trim();
@@ -90,6 +92,12 @@ export async function updateProfile(req: AuthedRequest, res: Response) {
       return res.status(400).json({ error: "Invalid timezone" });
     }
     req.dbUser.timezone = timezone.trim();
+  }
+  if (typeof avatarSeed === "string" && avatarSeed.trim()) {
+    if (!isValidAvatarSeed(avatarSeed.trim())) {
+      return res.status(400).json({ error: "Invalid avatar" });
+    }
+    req.dbUser.avatarSeed = avatarSeed.trim();
   }
   await req.dbUser.save();
   res.json({ user: req.dbUser });

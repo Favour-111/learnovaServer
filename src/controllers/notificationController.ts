@@ -2,10 +2,35 @@ import { Response } from "express";
 import { Notification } from "../models/Notification";
 import { AuthedRequest } from "../middleware/auth";
 
+const NOTIFICATIONS_PAGE_SIZE = 30;
+
+// GET /api/notifications?cursor=  omitting `cursor` keeps today's exact
+// behavior: a flat { notifications: [...] } array, newest 100 first. Passing
+// `cursor` (an opaque value from a previous response's pagination.nextCursor)
+// opts into the { data, pagination: { hasMore, nextCursor } } shape from the
+// pagination spec, for an infinite-scroll Notification Center later without
+// having to change what today's client already gets.
 export async function listNotifications(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const notifications = await Notification.find({ user: req.dbUser._id }).sort({ createdAt: -1 }).limit(100);
-  res.json({ notifications });
+  const { cursor } = req.query as { cursor?: string };
+
+  if (cursor === undefined) {
+    const notifications = await Notification.find({ user: req.dbUser._id }).sort({ createdAt: -1 }).limit(100).lean();
+    return res.json({ notifications });
+  }
+
+  const cursorDate = cursor ? new Date(cursor) : null;
+  const filter: Record<string, unknown> = { user: req.dbUser._id };
+  if (cursorDate && !Number.isNaN(cursorDate.getTime())) filter.createdAt = { $lt: cursorDate };
+
+  // Fetch one extra row purely to know whether there's a next page, without
+  // a separate countDocuments  the row itself is discarded, never returned.
+  const page = await Notification.find(filter).sort({ createdAt: -1 }).limit(NOTIFICATIONS_PAGE_SIZE + 1).lean();
+  const hasMore = page.length > NOTIFICATIONS_PAGE_SIZE;
+  const data = hasMore ? page.slice(0, NOTIFICATIONS_PAGE_SIZE) : page;
+  const nextCursor = hasMore ? data[data.length - 1].createdAt.toISOString() : null;
+
+  res.json({ data, pagination: { hasMore, nextCursor } });
 }
 
 export async function markNotificationRead(req: AuthedRequest, res: Response) {

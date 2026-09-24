@@ -16,6 +16,6 @@ export async function getXp(req: AuthedRequest, res: Response) {
 
 export async function getXpHistory(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const transactions = await XPTransaction.find({ user: req.dbUser._id }).sort({ createdAt: -1 }).limit(100);
+  const transactions = await XPTransaction.find({ user: req.dbUser._id }).sort({ createdAt: -1 }).limit(100).lean();
   res.json({ transactions });
 }

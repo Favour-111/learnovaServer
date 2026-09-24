@@ -30,7 +30,7 @@ export async function listQuizzes(req: AuthedRequest, res: Response) {
   if (courseId) filter.course = courseId;
   if (search) filter.title = { $regex: search, $options: "i" };
 
-  const query = Quiz.find(filter).populate("category").sort({ createdAt: -1 });
+  const query = Quiz.find(filter).populate("category").sort({ createdAt: -1 }).lean();
 
   const pageSize = Math.min(Math.max(Number(limit) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
   const pageNumber = Math.max(Number(page) || 1, 1);
@@ -58,7 +58,7 @@ export async function listQuizzes(req: AuthedRequest, res: Response) {
   const bestScoreByQuiz = new Map(bestScores.map((b) => [String(b._id), b.best]));
 
   const quizzesJson = quizzes.map((q) => ({
-    ...q.toObject(),
+    ...q,
     questionCount: questionCountByQuiz.get(String(q._id)) ?? 0,
     bestScorePercent: bestScoreByQuiz.get(String(q._id)) ?? null,
   }));
@@ -69,21 +69,41 @@ export async function listQuizzes(req: AuthedRequest, res: Response) {
   });
 }
 
-// GET /api/quizzes/attempts/me  every attempt the current user has ever
-// made, newest first, for the Progress screen's Quiz History.
+// GET /api/quizzes/attempts/me?page=&limit=  every attempt the current user
+// has ever made, newest first, for the Progress screen's Quiz History.
+// page/limit are optional  omitting them returns the same {attempts: [...]}
+// shape as before, just now safety-capped at 100 (matching every other
+// history endpoint's default  xp/credits history, notifications) instead
+// of being genuinely unbounded, which is what this endpoint used to be.
 export async function getMyQuizAttempts(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const attempts = await QuizAttempt.find({ user: req.dbUser._id })
+  const { page, limit } = req.query as Record<string, string | undefined>;
+  const pageSize = Math.min(Math.max(Number(limit) || 100, 1), 100);
+  const pageNumber = Math.max(Number(page) || 1, 1);
+  const isPaginated = page != null || limit != null;
+
+  const query = QuizAttempt.find({ user: req.dbUser._id })
     .sort({ createdAt: -1 })
     .populate({
       path: "quiz",
       select: "title description estimatedMinutes imageUrl category",
       populate: { path: "category", select: "name slug imageUrl" },
-    });
+    })
+    .lean();
+
+  const [attempts, total] = await Promise.all([
+    isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(pageSize),
+    isPaginated ? QuizAttempt.countDocuments({ user: req.dbUser._id }) : Promise.resolve(undefined),
+  ]);
+
   // An attempt can outlive the quiz it was taken on (e.g. an admin deletes
   // it later)  populate leaves `quiz` null in that case, which the client
   // isn't built to render, so drop those rather than sending broken rows.
-  res.json({ attempts: attempts.filter((a) => a.quiz != null) });
+  const filtered = attempts.filter((a) => a.quiz != null);
+  res.json({
+    attempts: filtered,
+    ...(isPaginated ? { page: pageNumber, limit: pageSize, total, hasMore: pageNumber * pageSize < (total ?? 0) } : {}),
+  });
 }
 
 // GET /api/quizzes/stats/me  the Progress screen's Quiz Performance card.
@@ -102,26 +122,27 @@ export async function getMyQuizStats(req: AuthedRequest, res: Response) {
 }
 
 export async function getQuiz(req: AuthedRequest, res: Response) {
-  const quiz = await Quiz.findById(req.params.id).populate("category");
+  const quiz = await Quiz.findById(req.params.id).populate("category").lean();
   if (!quiz) return res.status(404).json({ error: "Quiz not found" });
   if (!quiz.isPublished && req.dbUser?.role !== "admin") return res.status(404).json({ error: "Quiz not found" });
 
   // Correct answers are stripped before sending to the client.
   const questions = await Question.find({ quiz: quiz._id })
     .sort({ order: 1 })
-    .select("-correctOptionIndex -correctBoolean");
+    .select("-correctOptionIndex -correctBoolean")
+    .lean();
   // Surfaced so the mobile results screen can offer a "Start Project"
   // button straight off the back of passing this module's quiz  the
   // project screen itself still enforces (and shows) the lesson-completion
   // lock, this is just "does one exist for this module at all". Only
   // applies to module quizzes; a standalone quiz has no module to match.
-  const project = quiz.module ? await Project.findOne({ module: quiz.module }).select("_id title") : null;
+  const project = quiz.module ? await Project.findOne({ module: quiz.module }).select("_id title").lean() : null;
 
   let bestScorePercent: number | null = null;
   let attemptsCount = 0;
   if (req.dbUser) {
     const [best, count] = await Promise.all([
-      QuizAttempt.findOne({ user: req.dbUser._id, quiz: quiz._id }).sort({ scorePercent: -1 }).select("scorePercent"),
+      QuizAttempt.findOne({ user: req.dbUser._id, quiz: quiz._id }).sort({ scorePercent: -1 }).select("scorePercent").lean(),
       QuizAttempt.countDocuments({ user: req.dbUser._id, quiz: quiz._id }),
     ]);
     bestScorePercent = best?.scorePercent ?? null;
@@ -141,11 +162,11 @@ interface SubmitAnswer {
 // against the stored correct answers; the client only ever sends selections.
 export async function submitQuiz(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const quiz = await Quiz.findById(req.params.id);
+  const quiz = await Quiz.findById(req.params.id).lean();
   if (!quiz) return res.status(404).json({ error: "Quiz not found" });
 
   const { answers } = req.body as { answers: SubmitAnswer[] };
-  const questions = await Question.find({ quiz: quiz._id });
+  const questions = await Question.find({ quiz: quiz._id }).lean();
 
   let correctCount = 0;
   for (const q of questions) {
@@ -165,7 +186,7 @@ export async function submitQuiz(req: AuthedRequest, res: Response) {
   // written, so "did this attempt set a new best" and "how many times has
   // this been passed before" both reflect state strictly before this one.
   const [previousBest, alreadyPassedBefore, attemptNumber] = await Promise.all([
-    QuizAttempt.findOne({ user: req.dbUser._id, quiz: quiz._id }).sort({ scorePercent: -1 }).select("scorePercent"),
+    QuizAttempt.findOne({ user: req.dbUser._id, quiz: quiz._id }).sort({ scorePercent: -1 }).select("scorePercent").lean(),
     QuizAttempt.exists({ user: req.dbUser._id, quiz: quiz._id, passed: true }),
     QuizAttempt.countDocuments({ user: req.dbUser._id, quiz: quiz._id }).then((n) => n + 1),
   ]);

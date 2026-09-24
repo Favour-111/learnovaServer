@@ -94,4 +94,8 @@ const achievementSchema = new Schema<IAchievement>(
   { timestamps: true }
 );
 
+// Powers evaluateAchievements' pending-achievement lookup, which filters
+// to active achievements before checking each one's progress.
+achievementSchema.index({ active: 1 });
+
 export const Achievement = model<IAchievement>("Achievement", achievementSchema);

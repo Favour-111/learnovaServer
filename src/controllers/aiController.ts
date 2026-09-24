@@ -18,9 +18,9 @@ export async function tutorAsk(req: AuthedRequest, res: Response) {
     history?: { role: "user" | "assistant"; content: string }[];
   };
 
-  const lesson = await Lesson.findById(lessonId);
+  const lesson = await Lesson.findById(lessonId).lean();
   if (!lesson) return res.status(404).json({ error: "Lesson not found" });
-  const [mod, course] = await Promise.all([Module.findById(lesson.module), Course.findById(lesson.course)]);
+  const [mod, course] = await Promise.all([Module.findById(lesson.module).lean(), Course.findById(lesson.course).lean()]);
 
   const answer = await askTutor(
     {
@@ -46,9 +46,9 @@ export async function careerRecommendation(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
 
   const [completedCourses, projectAttempts, quizAttempts] = await Promise.all([
-    Enrollment.find({ user: req.dbUser._id, status: "completed" }).populate("course"),
-    ProjectAttempt.find({ user: req.dbUser._id, passed: true }),
-    QuizAttempt.find({ user: req.dbUser._id }),
+    Enrollment.find({ user: req.dbUser._id, status: "completed" }).populate("course").lean(),
+    ProjectAttempt.find({ user: req.dbUser._id, passed: true }).lean(),
+    QuizAttempt.find({ user: req.dbUser._id }).lean(),
   ]);
 
   if (completedCourses.length < 1 || projectAttempts.length < 2) {

@@ -22,19 +22,23 @@ import { emitUserUpdate } from "../services/realtime";
 // a learner actually moves through  Lesson.order is only unique *within*
 // its module, so getting a correct global sequence (for prev/next nav and
 // the "Lesson 03" breadcrumb) means joining through Module.order too.
+// Read-only everywhere it's used (prev/next nav, module/lesson-number
+// lookups)  .lean() throughout, and .equals() below still works fine on a
+// lean result since _id stays a real ObjectId instance, just not wrapped in
+// a full hydrated Document.
 async function getFlattenedLessons(courseId: unknown) {
   const [modules, lessons] = await Promise.all([
-    Module.find({ course: courseId, isPublished: true }).sort({ order: 1 }),
-    Lesson.find({ course: courseId, isPublished: true }).sort({ order: 1 }),
+    Module.find({ course: courseId, isPublished: true }).sort({ order: 1 }).lean(),
+    Lesson.find({ course: courseId, isPublished: true }).sort({ order: 1 }).lean(),
   ]);
   return modules.flatMap((mod) => lessons.filter((l) => l.module.equals(mod._id)).map((l) => ({ lesson: l, module: mod })));
 }
 
 export async function getLesson(req: AuthedRequest, res: Response) {
-  const lesson = await Lesson.findById(req.params.id);
+  const lesson = await Lesson.findById(req.params.id).lean();
   if (!lesson) return res.status(404).json({ error: "Lesson not found" });
 
-  const [course, flattened] = await Promise.all([Course.findById(lesson.course), getFlattenedLessons(lesson.course)]);
+  const [course, flattened] = await Promise.all([Course.findById(lesson.course).lean(), getFlattenedLessons(lesson.course)]);
   const index = flattened.findIndex((f) => f.lesson._id.equals(lesson._id));
   const current = flattened[index];
   const lessonNumberInModule = current
@@ -46,8 +50,8 @@ export async function getLesson(req: AuthedRequest, res: Response) {
   let enrollment = null;
   if (req.dbUser) {
     [progress, enrollment] = await Promise.all([
-      LessonProgress.findOne({ user: req.dbUser._id, lesson: lesson._id }),
-      Enrollment.findOne({ user: req.dbUser._id, course: lesson.course }),
+      LessonProgress.findOne({ user: req.dbUser._id, lesson: lesson._id }).lean(),
+      Enrollment.findOne({ user: req.dbUser._id, course: lesson.course }).lean(),
     ]);
     courseProgressPercent = enrollment?.progressPercent ?? null;
   }
@@ -63,7 +67,7 @@ export async function getLesson(req: AuthedRequest, res: Response) {
   // once per module rather than on every lesson in it.
   const moduleLessons = current ? flattened.filter((f) => f.module._id.equals(current.module._id)) : [];
   const isLastLessonInModule = current ? moduleLessons[moduleLessons.length - 1].lesson._id.equals(lesson._id) : false;
-  const quiz = isLastLessonInModule ? await Quiz.findOne({ module: current!.module._id }).select("_id") : null;
+  const quiz = isLastLessonInModule ? await Quiz.findOne({ module: current!.module._id }).select("_id").lean() : null;
 
   // The module's quiz is compulsory: a learner can't be marked as having
   // passed it (and therefore unlocked the next module) without a passing
@@ -103,7 +107,7 @@ async function recalculateCourseProgress(userId: string, courseId: string) {
   const progressPercent = totalLessons > 0 ? Math.min(100, Math.round((completedLessons / totalLessons) * 100)) : 0;
   const isCourseComplete = totalLessons > 0 && completedLessons >= totalLessons;
 
-  const previous = await Enrollment.findOne({ user: userId, course: courseId }).select("status");
+  const previous = await Enrollment.findOne({ user: userId, course: courseId }).select("status").lean();
   const wasAlreadyComplete = previous?.status === "completed";
 
   const enrollment = await Enrollment.findOneAndUpdate(
@@ -285,7 +289,7 @@ export async function updateLessonProgress(req: AuthedRequest, res: Response) {
 
 export async function toggleBookmark(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const lesson = await Lesson.findById(req.params.id);
+  const lesson = await Lesson.findById(req.params.id).select("course").lean();
   if (!lesson) return res.status(404).json({ error: "Lesson not found" });
 
   const progress = await LessonProgress.findOneAndUpdate(

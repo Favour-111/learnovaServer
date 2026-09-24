@@ -59,4 +59,8 @@ const projectAttemptSchema = new Schema<IProjectAttempt>(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
+// Powers getProjectAttempts and the admin submission-detail view, both of
+// which filter by this exact user+project pair.
+projectAttemptSchema.index({ user: 1, project: 1 });
+
 export const ProjectAttempt = model<IProjectAttempt>("ProjectAttempt", projectAttemptSchema);

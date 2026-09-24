@@ -70,4 +70,8 @@ const courseSchema = new Schema<ICourse>(
   { timestamps: true }
 );
 
+// Powers listCourses' isPublished + optional category filter (the most
+// common shape that endpoint is called with).
+courseSchema.index({ isPublished: 1, category: 1 });
+
 export const Course = model<ICourse>("Course", courseSchema);

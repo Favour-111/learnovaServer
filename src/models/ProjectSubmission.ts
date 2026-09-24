@@ -85,4 +85,7 @@ const projectSubmissionSchema = new Schema<IProjectSubmission>(
   { timestamps: { createdAt: true, updatedAt: true } }
 );
 
+// Powers the admin submissions list's status filter.
+projectSubmissionSchema.index({ status: 1 });
+
 export const ProjectSubmission = model<IProjectSubmission>("ProjectSubmission", projectSubmissionSchema);

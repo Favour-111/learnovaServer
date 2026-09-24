@@ -9,6 +9,7 @@ import { LessonProgress } from "../models/LessonProgress";
 import { CreditTransaction } from "../models/CreditTransaction";
 import { AuthedRequest } from "../middleware/auth";
 import { emitUserUpdate } from "../services/realtime";
+import { getOrSetCache } from "../services/cache";
 
 // Trimmed from list responses  large, detail-only content that no list
 // card reads (course/[id].tsx's material reader is the only consumer of
@@ -18,6 +19,17 @@ const LIST_EXCLUDED_FIELDS = "-materialContent -pdfUrl";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
+
+// listCourses is Home's carousels + the Courses tab's main list  almost
+// certainly the highest-traffic read in the whole app, and identical for
+// every signed-out/no-saved-courses caller hitting the same filter
+// combination, so it's the clearest "featured/popular courses" caching
+// target. Short TTL rather than explicit invalidation on every course
+// write: a newly-published course or edited title showing up up to 2
+// minutes late is an acceptable tradeoff for a course catalog (nothing
+// time-sensitive, unlike a quiz result or payment), and avoids having to
+// enumerate every possible filter-combination cache key to invalidate.
+const COURSE_LIST_CACHE_TTL_SECONDS = 120;
 
 // GET /api/courses?tab=all|popular|new|free|premium&category=&search=&page=&limit=
 // `page`/`limit` are optional  omitting them preserves the old "give me
@@ -34,24 +46,32 @@ export async function listCourses(req: AuthedRequest, res: Response) {
   if (tab === "premium") filter.isPremium = true;
   if (search) filter.title = { $regex: search, $options: "i" };
 
-  let query = Course.find(filter, LIST_EXCLUDED_FIELDS).populate("category");
-  if (tab === "popular") query = query.sort({ studentCount: -1 });
-  if (tab === "new") query = query.sort({ createdAt: -1 });
-
   const pageSize = Math.min(Math.max(Number(limit) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
   const pageNumber = Math.max(Number(page) || 1, 1);
   const isPaginated = page != null || limit != null;
 
-  const [courses, total] = await Promise.all([
-    isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(50),
-    isPaginated ? Course.countDocuments(filter) : Promise.resolve(undefined),
-  ]);
+  // Cached WITHOUT any per-user data  isSaved is layered on after, below,
+  // from req.dbUser, so the same cache entry is safely shared across every
+  // caller hitting this exact filter/page combination regardless of who's
+  // signed in.
+  const cacheKey = `courses:list:${tab ?? ""}:${category ?? ""}:${search ?? ""}:${pageNumber}:${pageSize}:${isPaginated}`;
+  const { courses, total } = await getOrSetCache(cacheKey, COURSE_LIST_CACHE_TTL_SECONDS, async () => {
+    let query = Course.find(filter, LIST_EXCLUDED_FIELDS).populate("category").lean();
+    if (tab === "popular") query = query.sort({ studentCount: -1 });
+    if (tab === "new") query = query.sort({ createdAt: -1 });
+
+    const [courses, total] = await Promise.all([
+      isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(50),
+      isPaginated ? Course.countDocuments(filter) : Promise.resolve(undefined),
+    ]);
+    return { courses, total };
+  });
 
   // Signed-out browsing (or a session with nothing saved yet) just skips
   // this  the bookmark icon on the client defaults to the outline state.
   const savedIds = req.dbUser?.savedCourses;
   const coursesJson = savedIds
-    ? courses.map((c) => ({ ...c.toObject(), isSaved: savedIds.some((id) => id.equals(c._id)) }))
+    ? courses.map((c) => ({ ...c, isSaved: savedIds.some((id) => id.equals(c._id)) }))
     : courses;
 
   res.json({
@@ -67,27 +87,46 @@ export async function listCourses(req: AuthedRequest, res: Response) {
 // to be reachable.
 export async function listSavedCourses(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const courses = await Course.find({ _id: { $in: req.dbUser.savedCourses } }).populate("category");
-  const coursesJson = courses.map((c) => ({ ...c.toObject(), isSaved: true }));
+  const courses = await Course.find({ _id: { $in: req.dbUser.savedCourses } }).populate("category").lean();
+  const coursesJson = courses.map((c) => ({ ...c, isSaved: true }));
   res.json({ courses: coursesJson });
 }
 
-// GET /api/courses/my  courses the current user is enrolled in.
+// GET /api/courses/my?page=&limit=  courses the current user is enrolled
+// in. page/limit are optional  omitting them returns the same
+// {enrollments: [...]} shape as before, just now safety-capped at 100
+// instead of genuinely unbounded.
 export async function listMyCourses(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const enrollments = await Enrollment.find({ user: req.dbUser._id }).populate({
-    path: "course",
-    populate: { path: "category" },
+  const { page, limit } = req.query as Record<string, string | undefined>;
+  const pageSize = Math.min(Math.max(Number(limit) || 100, 1), 100);
+  const pageNumber = Math.max(Number(page) || 1, 1);
+  const isPaginated = page != null || limit != null;
+
+  const query = Enrollment.find({ user: req.dbUser._id })
+    .populate({
+      path: "course",
+      populate: { path: "category" },
+    })
+    .lean();
+
+  const [enrollments, total] = await Promise.all([
+    isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(pageSize),
+    isPaginated ? Enrollment.countDocuments({ user: req.dbUser._id }) : Promise.resolve(undefined),
+  ]);
+
+  res.json({
+    enrollments,
+    ...(isPaginated ? { page: pageNumber, limit: pageSize, total, hasMore: pageNumber * pageSize < (total ?? 0) } : {}),
   });
-  res.json({ enrollments });
 }
 
 // GET /api/courses/:id  full detail including module/lesson/project structure.
 export async function getCourse(req: AuthedRequest, res: Response) {
-  const course = await Course.findById(req.params.id).populate("category");
+  const course = await Course.findById(req.params.id).populate("category").lean();
   if (!course) return res.status(404).json({ error: "Course not found" });
 
-  const modules = await Module.find({ course: course._id }).sort({ order: 1 });
+  const modules = await Module.find({ course: course._id }).sort({ order: 1 }).lean();
   // isPublished: true here matters beyond just hiding drafts  it's what
   // keeps this endpoint's lesson set (and therefore its inline project-lock
   // calculation below) consistent with services/moduleAccess.ts's
@@ -97,8 +136,8 @@ export async function getCourse(req: AuthedRequest, res: Response) {
   // outline AND make a project look locked here while the project's own
   // screen (which uses isModuleComplete) correctly shows it unlocked.
   const [lessons, projects] = await Promise.all([
-    Lesson.find({ course: course._id, isPublished: true }).sort({ order: 1 }),
-    Project.find({ course: course._id }),
+    Lesson.find({ course: course._id, isPublished: true }).sort({ order: 1 }).lean(),
+    Project.find({ course: course._id }).lean(),
   ]);
 
   let completedLessonIds = new Set<string>();
@@ -106,9 +145,9 @@ export async function getCourse(req: AuthedRequest, res: Response) {
   let enrollment = null;
   let isSaved = false;
   if (req.dbUser) {
-    enrollment = await Enrollment.findOne({ user: req.dbUser._id, course: course._id });
+    enrollment = await Enrollment.findOne({ user: req.dbUser._id, course: course._id }).lean();
     isSaved = req.dbUser.savedCourses.some((id) => id.equals(course._id));
-    const progress = await LessonProgress.find({ user: req.dbUser._id, course: course._id, isCompleted: true });
+    const progress = await LessonProgress.find({ user: req.dbUser._id, course: course._id, isCompleted: true }).lean();
     completedLessonIds = new Set(progress.map((p) => p.lesson.toString()));
     const passedProjectIdList = await ProjectAttempt.find({
       user: req.dbUser._id,
@@ -130,7 +169,7 @@ export async function getCourse(req: AuthedRequest, res: Response) {
 
     return {
       module: mod,
-      lessons: moduleLessons.map((l) => ({ ...l.toObject(), isCompleted: completedLessonIds.has(l._id.toString()) })),
+      lessons: moduleLessons.map((l) => ({ ...l, isCompleted: completedLessonIds.has(l._id.toString()) })),
       project: project ? { _id: project._id, title: project.title, isLocked: isProjectLocked, isPassed: isProjectPassed } : null,
     };
   });
@@ -143,7 +182,7 @@ export async function getCourse(req: AuthedRequest, res: Response) {
   // without ever receiving the real content.
   const hasPurchased = !course.isPremium || !!enrollment?.isPaid;
   const hasMaterial = !!(course.materialContent || course.pdfUrl);
-  const courseJson = course.toObject() as unknown as Record<string, unknown>;
+  const courseJson = course as unknown as Record<string, unknown>;
   if (!hasPurchased) {
     delete courseJson.materialContent;
     delete courseJson.pdfUrl;
@@ -157,7 +196,7 @@ export async function getCourse(req: AuthedRequest, res: Response) {
 // (the bookmark button on the course detail screen).
 export async function toggleSaveCourse(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const course = await Course.findById(req.params.id);
+  const course = await Course.findById(req.params.id).select("_id").lean();
   if (!course) return res.status(404).json({ error: "Course not found" });
 
   const alreadySaved = req.dbUser.savedCourses.some((id) => id.equals(course._id));
@@ -175,10 +214,10 @@ export async function toggleSaveCourse(req: AuthedRequest, res: Response) {
 // go through purchaseCourse instead, which is what actually flips isPaid.
 export async function enrollInCourse(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const course = await Course.findById(req.params.id);
+  const course = await Course.findById(req.params.id).select("isPremium priceCredits").lean();
   if (!course) return res.status(404).json({ error: "Course not found" });
 
-  const existing = await Enrollment.findOne({ user: req.dbUser._id, course: course._id });
+  const existing = await Enrollment.findOne({ user: req.dbUser._id, course: course._id }).lean();
   if (existing) {
     return res.status(200).json({ enrollment: existing });
   }
@@ -206,7 +245,7 @@ export async function enrollInCourse(req: AuthedRequest, res: Response) {
 // isPaid on an existing (free-preview) one.
 export async function purchaseCourse(req: AuthedRequest, res: Response) {
   if (!req.dbUser) return res.status(401).json({ error: "Unauthorized" });
-  const course = await Course.findById(req.params.id);
+  const course = await Course.findById(req.params.id).select("isPremium priceCredits").lean();
   if (!course) return res.status(404).json({ error: "Course not found" });
   if (!course.isPremium || course.priceCredits <= 0) {
     return res.status(400).json({ error: "This course isn't premium" });

@@ -39,8 +39,6 @@ services:
         sync: false
       - key: CERTIFICATE_VERIFY_BASE_URL
         sync: false
-      - key: ADMIN_SESSION_SECRET
-        sync: false
       - key: AWS_REGION
         sync: false
       - key: AWS_ACCESS_KEY_ID
@@ -61,3 +59,13 @@ services:
         sync: false
       - key: AWS_CLOUDFRONT_PRIVATE_KEY
         sync: false
+      # Optional  omit entirely to run exactly as today (no caching, no
+      # background jobs, in-process fallback for both). Set REDIS_URL to
+      # turn both on; see the backend's Caching/Background Jobs reports for
+      # what activates.
+      - key: REDIS_URL
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: LOG_LEVEL
+        value: info

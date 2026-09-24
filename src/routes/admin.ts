@@ -19,18 +19,43 @@ import {
   Notification,
 } from "../models";
 import { recomputeCurrentLeaderboard } from "../services/leaderboard";
-import { recalculateUserAchievements, evaluateAchievements } from "../services/achievements";
+import { evaluateAchievements } from "../services/achievements";
+import { runOrEnqueueRecalculateAll } from "../jobs/achievementsRecalculate";
 import { awardXpAndCredits } from "../services/gamification";
 import { assistText, TextAssistAction, generateQuizQuestions } from "../services/openai";
 import { notifyUsers } from "../services/notify";
 import { setYouTubeVideo, createUploadUrl, completeUpload, retryProcessing } from "../controllers/videoController";
 import { getImageUploadUrl } from "../controllers/uploadController";
 import { LeaderboardEntry } from "../models/LeaderboardEntry";
+import { adminLimiter, aiLimiter } from "../middleware/rateLimiters";
+import { validateBody } from "../middleware/validate";
+import { adminRoleChangeSchema } from "../validation/schemas";
 
 const router = Router();
 
-// Every admin route requires a signed-in Clerk session AND role === "admin".
-router.use(requireAuth, attachDbUser, requireAdmin);
+// Every admin route requires a signed-in Clerk session AND role === "admin",
+// plus a tighter rate ceiling than ordinary learner traffic (still layered
+// under the global /api limiter in app.ts).
+router.use(requireAuth, attachDbUser, requireAdmin, adminLimiter);
+
+const ADMIN_DEFAULT_LIMIT = 200;
+const ADMIN_MAX_LIMIT = 200;
+
+// Shared by every admin list endpoint below. Omitting page/limit keeps
+// today's exact behavior (a flat top-200, no page/total in the response)
+// so no existing admin-panel call breaks; passing either opts into real
+// skip/limit paging with a total count alongside the items.
+export function adminPageParams(req: { query: Record<string, unknown> }) {
+  const { page, limit } = req.query as { page?: string; limit?: string };
+  const isPaginated = page != null || limit != null;
+  const pageSize = Math.min(Math.max(Number(limit) || ADMIN_DEFAULT_LIMIT, 1), ADMIN_MAX_LIMIT);
+  const pageNumber = Math.max(Number(page) || 1, 1);
+  return { isPaginated, pageSize, pageNumber };
+}
+
+export function adminPageMeta(isPaginated: boolean, pageNumber: number, pageSize: number, total: number | undefined) {
+  return isPaginated ? { page: pageNumber, limit: pageSize, total, hasMore: pageNumber * pageSize < (total ?? 0) } : {};
+}
 
 // Express 4 doesn't forward a rejected promise from an async handler to
 // next(err) on its own  an uncaught rejection here (e.g. a Mongoose
@@ -41,14 +66,20 @@ function crud(model: Model<any>) {
   const r = Router();
   r.get("/", async (req, res, next) => {
     try {
-      res.json({ items: await model.find().sort({ createdAt: -1 }).limit(200) });
+      const { isPaginated, pageSize, pageNumber } = adminPageParams(req);
+      const query = model.find().sort({ createdAt: -1 }).lean();
+      const [items, total] = await Promise.all([
+        isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(ADMIN_DEFAULT_LIMIT),
+        isPaginated ? model.countDocuments() : Promise.resolve(undefined),
+      ]);
+      res.json({ items, ...adminPageMeta(isPaginated, pageNumber, pageSize, total) });
     } catch (err) {
       next(err);
     }
   });
   r.get("/:id", async (req, res, next) => {
     try {
-      const item = await model.findById(req.params.id);
+      const item = await model.findById(req.params.id).lean();
       if (!item) return res.status(404).json({ error: "Not found" });
       res.json({ item });
     } catch (err) {
@@ -157,7 +188,7 @@ async function regenerateQuestions(quizId: unknown, topic: string, count?: numbe
 // question set with a fresh AI-generated one from a short topic description.
 // Lives outside crud(Quiz) since it's an action (and talks to OpenAI), not a
 // plain field update.
-router.post("/quizzes/:id/generate-questions", async (req, res) => {
+router.post("/quizzes/:id/generate-questions", aiLimiter, async (req, res) => {
   const quiz = await Quiz.findById(req.params.id);
   if (!quiz) return res.status(404).json({ error: "Quiz not found" });
 
@@ -179,7 +210,7 @@ router.post("/quizzes/:id/generate-questions", async (req, res) => {
 // have one yet (reuses it if it does), then (re)generates its questions.
 // Lets an admin go straight from a module to a ready quiz without first
 // having to manually create an empty Quiz row.
-router.post("/modules/:id/generate-quiz", async (req, res) => {
+router.post("/modules/:id/generate-quiz", aiLimiter, async (req, res) => {
   const mod = await Module.findById(req.params.id);
   if (!mod) return res.status(404).json({ error: "Module not found" });
 
@@ -217,27 +248,34 @@ router.use("/achievements", crud(Achievement));
 // once after adding a new achievement (or changing an existing one's
 // requirement) so existing users who already qualify get unlocked/rewarded
 // immediately instead of waiting for their next learning action.
+// With REDIS_URL configured this runs as a background job and responds
+// immediately ({queued: true}); without it, runs the identical per-user
+// loop synchronously and responds with the same {usersProcessed,
+// achievementsUnlocked} shape this endpoint always has.
 router.post("/achievements/recalculate-all", async (req, res, next) => {
   try {
-    const userIds = await User.find().distinct("_id");
-    let unlockedCount = 0;
-    for (const userId of userIds) {
-      // eslint-disable-next-line no-await-in-loop
-      const unlocked = await recalculateUserAchievements(userId);
-      unlockedCount += unlocked.length;
-    }
-    res.json({ usersProcessed: userIds.length, achievementsUnlocked: unlockedCount });
+    const result = await runOrEnqueueRecalculateAll();
+    res.json(result);
   } catch (err) {
     next(err);
   }
 });
 
 router.get("/users", async (req, res) => {
-  const users = await User.find().sort({ createdAt: -1 }).limit(200);
-  res.json({ users });
+  const { isPaginated, pageSize, pageNumber } = adminPageParams(req);
+  const query = User.find().sort({ createdAt: -1 }).lean();
+  const [users, total] = await Promise.all([
+    isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(ADMIN_DEFAULT_LIMIT),
+    isPaginated ? User.countDocuments() : Promise.resolve(undefined),
+  ]);
+  res.json({ users, ...adminPageMeta(isPaginated, pageNumber, pageSize, total) });
 });
 
-router.put("/users/:id/role", async (req, res) => {
+// findByIdAndUpdate doesn't run schema validators by default (that's opt-in
+// via runValidators), so without this the enum on User.role was never
+// actually enforced here  validateBody is what stops an arbitrary string
+// from being written straight to the DB.
+router.put("/users/:id/role", validateBody(adminRoleChangeSchema), async (req, res) => {
   const { role } = req.body as { role: "user" | "admin" };
   const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true });
   if (!user) return res.status(404).json({ error: "Not found" });
@@ -260,7 +298,8 @@ router.get("/submissions", async (req, res, next) => {
       .limit(200)
       .populate("user", "name email")
       .populate("project", "title passingScore")
-      .populate({ path: "currentAttempt" });
+      .populate({ path: "currentAttempt" })
+      .lean();
 
     if (status) {
       submissions = submissions.filter((s) => {
@@ -284,12 +323,14 @@ router.get("/submissions/:id", async (req, res, next) => {
     const submission = await ProjectSubmission.findById(req.params.id)
       .populate("user", "name email avatarUrl")
       .populate("project")
-      .populate({ path: "currentAttempt", populate: { path: "evaluation" } });
+      .populate({ path: "currentAttempt", populate: { path: "evaluation" } })
+      .lean();
     if (!submission) return res.status(404).json({ error: "Not found" });
 
     const attemptHistory = await ProjectAttempt.find({ user: submission.user, project: submission.project })
       .sort({ attemptNumber: 1 })
-      .populate("evaluation");
+      .populate("evaluation")
+      .lean();
 
     res.json({ submission, attemptHistory });
   } catch (err) {
@@ -371,18 +412,36 @@ router.post("/submissions/:id/override", async (req: AuthedRequest, res, next) =
 });
 
 router.get("/evaluations", async (req, res) => {
-  const evaluations = await AIEvaluation.find().sort({ createdAt: -1 }).limit(200).populate("projectAttempt");
-  res.json({ evaluations });
+  const { isPaginated, pageSize, pageNumber } = adminPageParams(req);
+  const query = AIEvaluation.find().sort({ createdAt: -1 }).populate("projectAttempt").lean();
+  const [evaluations, total] = await Promise.all([
+    isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(ADMIN_DEFAULT_LIMIT),
+    isPaginated ? AIEvaluation.countDocuments() : Promise.resolve(undefined),
+  ]);
+  res.json({ evaluations, ...adminPageMeta(isPaginated, pageNumber, pageSize, total) });
 });
 
 router.get("/certificates", async (req, res) => {
-  const certificates = await Certificate.find().sort({ createdAt: -1 }).limit(200).populate("user", "name email");
-  res.json({ certificates });
+  const { isPaginated, pageSize, pageNumber } = adminPageParams(req);
+  const query = Certificate.find().sort({ createdAt: -1 }).populate("user", "name email").lean();
+  const [certificates, total] = await Promise.all([
+    isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(ADMIN_DEFAULT_LIMIT),
+    isPaginated ? Certificate.countDocuments() : Promise.resolve(undefined),
+  ]);
+  res.json({ certificates, ...adminPageMeta(isPaginated, pageNumber, pageSize, total) });
 });
 
+// This global (cross-user) listing is what the {createdAt:-1} index on
+// Notification powers  the per-user {user,createdAt} compound index doesn't
+// help an unscoped query like this one.
 router.get("/notifications", async (req, res) => {
-  const notifications = await Notification.find().sort({ createdAt: -1 }).limit(200).populate("user", "name email");
-  res.json({ notifications });
+  const { isPaginated, pageSize, pageNumber } = adminPageParams(req);
+  const query = Notification.find().sort({ createdAt: -1 }).populate("user", "name email").lean();
+  const [notifications, total] = await Promise.all([
+    isPaginated ? query.skip((pageNumber - 1) * pageSize).limit(pageSize) : query.limit(ADMIN_DEFAULT_LIMIT),
+    isPaginated ? Notification.countDocuments() : Promise.resolve(undefined),
+  ]);
+  res.json({ notifications, ...adminPageMeta(isPaginated, pageNumber, pageSize, total) });
 });
 
 // DELETE /admin/notifications/:id  admin can delete any user's notification
@@ -396,13 +455,13 @@ router.delete("/notifications/:id", async (req, res) => {
 
 router.get("/leaderboard", async (req, res) => {
   const board = await recomputeCurrentLeaderboard();
-  const entries = await LeaderboardEntry.find({ leaderboard: board._id }).sort({ rank: 1 }).limit(50).populate("user", "name email");
+  const entries = await LeaderboardEntry.find({ leaderboard: board._id }).sort({ rank: 1 }).limit(50).populate("user", "name email").lean();
   res.json({ board, entries });
 });
 
 router.put("/courses/:id/publish", async (req, res) => {
   const { isPublished } = req.body as { isPublished: boolean };
-  const existing = await Course.findById(req.params.id, "isPublished");
+  const existing = await Course.findById(req.params.id, "isPublished").lean();
   if (!existing) return res.status(404).json({ error: "Not found" });
   const wasPublished = existing.isPublished;
 
@@ -456,7 +515,7 @@ const TEXT_ASSIST_ACTIONS: TextAssistAction[] = ["rewrite", "complete", "shorten
 // POST /api/admin/ai/assist  the rewrite/complete/shorten/lengthen button
 // on admin text fields. Admin-only (this router's blanket requireAdmin),
 // separate from the learner-facing /api/ai/* routes.
-router.post("/ai/assist", async (req, res) => {
+router.post("/ai/assist", aiLimiter, async (req, res) => {
   const { text, action } = req.body as { text?: string; action?: string };
   if (typeof text !== "string" || !text.trim()) {
     return res.status(400).json({ error: "text is required" });

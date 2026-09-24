@@ -38,7 +38,6 @@ export const env = {
   },
 
   certificateVerifyBaseUrl: process.env.CERTIFICATE_VERIFY_BASE_URL ?? "http://localhost:3000/verify",
-  adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? "change-me-in-production",
 
   // Uploaded-video pipeline (S3 -> MediaConvert -> CloudFront). All optional
   // at boot  services/aws.ts throws a clear error only when a call actually
@@ -59,6 +58,14 @@ export const env = {
     cloudfrontKeyPairId: process.env.AWS_CLOUDFRONT_KEY_PAIR_ID ?? "",
     cloudfrontPrivateKey: (process.env.AWS_CLOUDFRONT_PRIVATE_KEY ?? "").replace(/\\n/g, "\n"),
   },
+
+  // Optional  entirely absent in dev/most deployments today. Every
+  // consumer (services/cache.ts, services/queue.ts, the logger) must treat
+  // an empty string exactly like "not configured" and fall back to
+  // working without it, never throw at boot.
+  redisUrl: process.env.REDIS_URL ?? "",
+  sentryDsn: process.env.SENTRY_DSN ?? "",
+  logLevel: process.env.LOG_LEVEL ?? "info",
 
   isProduction: process.env.NODE_ENV === "production",
 };

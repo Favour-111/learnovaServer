@@ -46,4 +46,9 @@ const lessonProgressSchema = new Schema<ILessonProgress>(
 // XP is only ever granted the first time xpAwarded flips to true.
 lessonProgressSchema.index({ user: 1, lesson: 1 }, { unique: true });
 
+// Powers getCourse's per-course completion lookups and
+// recalculateCourseProgress, both of which filter by exactly these three
+// fields together.
+lessonProgressSchema.index({ user: 1, course: 1, isCompleted: 1 });
+
 export const LessonProgress = model<ILessonProgress>("LessonProgress", lessonProgressSchema);

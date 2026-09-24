@@ -3,6 +3,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { verifyToken } from "@clerk/backend";
 import { User } from "../models/User";
 import { env } from "../config/env";
+import { logger } from "../config/logger";
 
 let io: SocketIOServer | null = null;
 
@@ -14,8 +15,11 @@ let io: SocketIOServer | null = null;
 // own queries instead of the server needing to know every payload shape a
 // screen might want.
 export function initRealtime(httpServer: HTTPServer) {
+  // Same fail-closed-in-production reasoning as the main Express CORS
+  // config in app.ts: only a browser (the admin panel) is subject to this
+  // at all, so tightening it can't affect the mobile app.
   io = new SocketIOServer(httpServer, {
-    cors: { origin: env.corsOrigins.length > 0 ? env.corsOrigins : true, credentials: true },
+    cors: { origin: env.corsOrigins.length > 0 ? env.corsOrigins : env.isProduction ? false : true, credentials: true },
   });
 
   io.use(async (socket, next) => {
@@ -34,18 +38,23 @@ export function initRealtime(httpServer: HTTPServer) {
 
   io.on("connection", (socket) => {
     socket.join(`user:${socket.data.userId}`);
-    // eslint-disable-next-line no-console
-    console.log(`[realtime] user ${socket.data.userId} connected (${socket.id})`);
+    logger.info({ userId: socket.data.userId, socketId: socket.id }, "[realtime] connected");
     socket.on("disconnect", () => {
-      // eslint-disable-next-line no-console
-      console.log(`[realtime] user ${socket.data.userId} disconnected (${socket.id})`);
+      logger.info({ userId: socket.data.userId, socketId: socket.id }, "[realtime] disconnected");
     });
   });
 
-  // eslint-disable-next-line no-console
-  console.log("[realtime] socket.io attached");
+  logger.info("[realtime] socket.io attached");
 }
 
 export function emitUserUpdate(userId: string, reason: string) {
   io?.to(`user:${userId}`).emit("user:update", { reason, at: Date.now() });
+}
+
+// Used by server.ts's graceful-shutdown handler so open sockets are told to
+// disconnect cleanly instead of just being severed when the process exits.
+export async function closeRealtime(): Promise<void> {
+  if (!io) return;
+  await new Promise<void>((resolve) => io!.close(() => resolve()));
+  io = null;
 }
