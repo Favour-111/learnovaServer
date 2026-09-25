@@ -153,3 +153,32 @@ async function prunePushTokens(deadTokensByUser: Map<string, string[]>) {
     )
   );
 }
+
+// Dev/admin-only diagnostic  sends to exactly one token and waits for the
+// real Expo receipt before responding, unlike sendPushToUsers above (which
+// intentionally never blocks a real request on the 20s receipt delay).
+// Exists to answer one question directly: does Expo's own infrastructure
+// report this specific token as successfully delivered, and if not, what's
+// the exact error. See routes/admin.ts's /debug/test-push for the guarded
+// route this backs.
+export async function sendTestPush(token: string, title: string, body: string) {
+  if (!Expo.isExpoPushToken(token)) {
+    return { ok: false as const, stage: "validation" as const, error: "Not a valid Expo push token" };
+  }
+
+  const [ticket] = await expo.sendPushNotificationsAsync([{ to: token, title, body, sound: "default", data: { debug: true } }]);
+
+  if (ticket.status !== "ok") {
+    return { ok: false as const, stage: "ticket" as const, ticket };
+  }
+
+  // The real, delayed truth  Expo only knows whether Apple/Google actually
+  // accepted the message for delivery after their relay has had time to
+  // respond, which is exactly what a `status:"ok"` ticket above can't tell
+  // you (it only confirms Expo's own queue accepted the request).
+  await new Promise((resolve) => setTimeout(resolve, RECEIPT_CHECK_DELAY_MS));
+  const receipts = await expo.getPushNotificationReceiptsAsync([ticket.id]);
+  const receipt = receipts[ticket.id];
+
+  return { ok: receipt?.status === "ok", stage: "receipt" as const, ticket, receipt };
+}

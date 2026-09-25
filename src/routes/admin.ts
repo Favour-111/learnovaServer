@@ -24,6 +24,7 @@ import { runOrEnqueueRecalculateAll } from "../jobs/achievementsRecalculate";
 import { awardXpAndCredits } from "../services/gamification";
 import { assistText, TextAssistAction, generateQuizQuestions } from "../services/openai";
 import { notifyUsers } from "../services/notify";
+import { sendTestPush } from "../services/push";
 import { setYouTubeVideo, createUploadUrl, completeUpload, retryProcessing } from "../controllers/videoController";
 import { getImageUploadUrl } from "../controllers/uploadController";
 import { LeaderboardEntry } from "../models/LeaderboardEntry";
@@ -529,6 +530,28 @@ router.post("/ai/assist", aiLimiter, async (req, res) => {
     res.json({ result });
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : "AI request failed" });
+  }
+});
+
+// POST /admin/debug/test-push  temporary diagnostic for the "notification
+// saved but never displayed on the phone" problem: sends to exactly ONE
+// token (bypass all business logic/preferences) and waits for Expo's real
+// delivery receipt before responding, so the ticket/receipt distinction
+// (accepted-into-queue vs actually-delivered) is visible in one response
+// instead of requiring a log dig. Admin-only (this router's blanket guard)
+// and additionally refuses to run at all outside development, so it can
+// never be reachable in a production deploy.
+router.post("/debug/test-push", async (req, res, next) => {
+  if (process.env.NODE_ENV === "production") {
+    return res.status(404).json({ error: "Not found" });
+  }
+  try {
+    const { token, title, body } = req.body as { token?: string; title?: string; body?: string };
+    if (!token) return res.status(400).json({ error: "token is required  the raw Expo push token, e.g. ExponentPushToken[...]" });
+    const result = await sendTestPush(token, title || "Learnova Test", body || "FCM notification test successful.");
+    res.json(result);
+  } catch (err) {
+    next(err);
   }
 });
 
