@@ -17,6 +17,7 @@ import { evaluateAchievements, recordDailyActivity, todayStr, UnlockedAchievemen
 import { XP_RULES } from "../config/gamification";
 import { normalizeLessonVideo } from "../services/video";
 import { emitUserUpdate } from "../services/realtime";
+import { env } from "../config/env";
 
 // The course's module/lesson ordering, flattened into the single sequence
 // a learner actually moves through  Lesson.order is only unique *within*
@@ -237,6 +238,36 @@ export async function updateLessonProgress(req: AuthedRequest, res: Response) {
 
   const lesson = await Lesson.findById(req.params.id);
   if (!lesson) return res.status(404).json({ error: "Lesson not found" });
+
+  // Watch-time saving is switched off (env.watchProgressEnabled): nothing is
+  // written and the stored progress is echoed back unchanged, so the app's
+  // cached lastPositionSeconds stays put and its YouTube WebView (whose HTML
+  // embeds that value) doesn't reload mid-video. "Mark as complete" uses
+  // /complete and is unaffected.
+  if (!env.watchProgressEnabled) {
+    const current = await LessonProgress.findOne({ user: req.dbUser._id, lesson: lesson._id });
+    const progress = current ?? {
+      user: req.dbUser._id,
+      lesson: lesson._id,
+      course: lesson.course,
+      isCompleted: false,
+      isBookmarked: false,
+      xpAwarded: false,
+      watchedSeconds: 0,
+      lastPositionSeconds: 0,
+      durationSeconds: 0,
+    };
+    return res.json({
+      progress,
+      percentage: 0,
+      reward: null,
+      progressPercent: null,
+      isCourseComplete: false,
+      courseCompletionReward: null,
+      achievementsUnlocked: [],
+      streak: null,
+    });
+  }
 
   const clampedPosition = Math.max(0, Math.min(watchedSeconds, durationSeconds));
   const today = todayStr(req.dbUser.timezone);

@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --forceExit",
     "seed": "env -u ELECTRON_RUN_AS_NODE -u VSCODE_ESM_ENTRYPOINT -u NoDefaultCurrentDirectoryInExePath ts-node src/scripts/seed.ts",
+    "seed:roblox": "env -u ELECTRON_RUN_AS_NODE -u VSCODE_ESM_ENTRYPOINT -u NoDefaultCurrentDirectoryInExePath ts-node src/scripts/seedRobloxCourse.ts",
     "seed:dashboard": "env -u ELECTRON_RUN_AS_NODE -u VSCODE_ESM_ENTRYPOINT -u NoDefaultCurrentDirectoryInExePath ts-node src/scripts/seedDashboardDemo.ts",
     "seed:leaderboard": "env -u ELECTRON_RUN_AS_NODE -u VSCODE_ESM_ENTRYPOINT -u NoDefaultCurrentDirectoryInExePath ts-node src/scripts/seedLeaderboardDemo.ts",
     "seed:progress": "env -u ELECTRON_RUN_AS_NODE -u VSCODE_ESM_ENTRYPOINT -u NoDefaultCurrentDirectoryInExePath ts-node src/scripts/seedProgressDemo.ts",

@@ -16,6 +16,11 @@ export const env = {
   apiBaseUrl: process.env.API_BASE_URL ?? "http://localhost:4000",
   corsOrigins: (process.env.CORS_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean),
 
+  // Temporarily off: the app's player reloads whenever the periodic progress
+  // save changes lastPositionSeconds (see updateLessonProgress). Set
+  // WATCH_PROGRESS_ENABLED=true to turn automatic watch-time saving back on.
+  watchProgressEnabled: process.env.WATCH_PROGRESS_ENABLED === "true",
+
   mongodbUri: required("MONGODB_URI", "mongodb://localhost:27017/learnova"),
 
   clerkSecretKey: process.env.CLERK_SECRET_KEY ?? "",
